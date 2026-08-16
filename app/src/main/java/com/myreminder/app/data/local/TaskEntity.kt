@@ -14,47 +14,48 @@ data class TaskEntity(
     val id: Long = 0,
     val title: String,
     val company: String,
-    val type: TaskType,
-    val date: LocalDate,
-    val time: LocalTime?,
-    val meetingLink: String?,
-    val location: String?,
-    val priority: Priority,
-    val notes: String?,
-    val reminderDurationValue: Int = 30, // e.g. 15, 1, 2
-    val reminderDurationUnit: String = "MINUTES", // "MINUTES", "HOURS", "DAYS"
-    val reminderMinutes: Int = 30, // Total minutes for quick calculation / backward compatibility (-1 = no reminder)
+    val type: TaskType = TaskType.DEADLINE,
+    val date: LocalDate, // Event date
+    val time: LocalTime?, // Event time
+    val reminderDate: LocalDate = date, // Reminder start date (when notifications start sending)
+    val reminderTime: LocalTime? = time, // Reminder start time
+    val intervalMinutes: Int = 1440, // Duration between notifications in minutes (default: 1440 = 1 day)
+    val meetingLink: String? = null,
+    val location: String? = null,
+    val priority: Priority = Priority.HIGH,
+    val notes: String? = null,
+    val reminderDurationValue: Int = 1, // Retained for schema migration compatibility
+    val reminderDurationUnit: String = "DAYS", // Retained for schema migration compatibility
+    val reminderMinutes: Int = 1440, // Retained for backward compatibility
     val completed: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     /**
-     * Calculates the target LocalDateTime for this task.
-     * Defaults to 09:00 if no time is specified.
+     * Target / Event DateTime when the deadline/event occurs.
      */
-    fun getTargetDateTime(): LocalDateTime {
-        val targetTime = time ?: LocalTime.of(9, 0)
+    fun getEventDateTime(): LocalDateTime {
+        val targetTime = time ?: LocalTime.of(23, 59)
         return LocalDateTime.of(date, targetTime)
     }
 
     /**
-     * Total duration in minutes before the target time.
+     * Reminder Start DateTime from when notifications begin sending.
      */
-    fun calculateTotalReminderMinutes(): Int {
-        if (reminderDurationValue <= 0) return -1
-        return when (reminderDurationUnit.uppercase()) {
-            "MINUTES", "MINUTE" -> reminderDurationValue
-            "HOURS", "HOUR" -> reminderDurationValue * 60
-            "DAYS", "DAY" -> reminderDurationValue * 1440
-            else -> reminderDurationValue
-        }
+    fun getReminderStartDateTime(): LocalDateTime {
+        val rTime = reminderTime ?: time ?: LocalTime.of(9, 0)
+        return LocalDateTime.of(reminderDate, rTime)
     }
 
     /**
-     * Calculates when the reminder window begins: target_datetime - reminder_duration.
+     * Returns human-readable label for repeat interval.
      */
-    fun getReminderWindowStart(): LocalDateTime {
-        val totalMins = calculateTotalReminderMinutes()
-        if (totalMins <= 0) return getTargetDateTime()
-        return getTargetDateTime().minusMinutes(totalMins.toLong())
+    fun getIntervalDisplayName(): String {
+        return when (intervalMinutes) {
+            30 -> "30 minutes"
+            60 -> "1 hour"
+            1440 -> "1 day"
+            10080 -> "1 week"
+            else -> if (intervalMinutes % 1440 == 0) "${intervalMinutes / 1440} days" else "$intervalMinutes minutes"
+        }
     }
 }

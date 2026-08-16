@@ -13,45 +13,27 @@ class AlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     /**
-     * Calculates the sensible repeat interval in minutes based on total window duration.
-     */
-    fun calculateRepeatIntervalMinutes(totalDurationMinutes: Int): Int {
-        return when {
-            totalDurationMinutes <= 15 -> 5
-            totalDurationMinutes <= 30 -> 10
-            totalDurationMinutes <= 120 -> 30 // 2 hours -> every 30 mins
-            totalDurationMinutes <= 360 -> 60 // 6 hours -> every 1 hour
-            totalDurationMinutes <= 1440 -> 240 // 1 day -> every 4 hours
-            totalDurationMinutes <= 4320 -> 360 // 3 days -> every 6 hours
-            else -> 720 // > 3 days -> every 12 hours
-        }
-    }
-
-    /**
-     * Schedules the next reminder alarm for a task within its duration window.
+     * Schedules the next reminder alarm for a task from reminderStart until eventTime at intervalMinutes.
      */
     fun scheduleTaskReminder(task: TaskEntity) {
         if (task.completed) return
 
-        val totalDurationMinutes = task.calculateTotalReminderMinutes()
-        if (totalDurationMinutes < 0) return
-
         val now = LocalDateTime.now()
-        val targetDateTime = task.getTargetDateTime()
+        val eventDateTime = task.getEventDateTime()
+        val reminderStart = task.getReminderStartDateTime()
+        val intervalMinutes = if (task.intervalMinutes > 0) task.intervalMinutes else 1440
 
-        // If target time has already passed, no alarm needed
-        if (!targetDateTime.isAfter(now)) return
+        // If event deadline has already passed, no alarm needed
+        if (!eventDateTime.isAfter(now)) return
 
-        val windowStart = targetDateTime.minusMinutes(totalDurationMinutes.toLong())
         val nextAlarmTime: LocalDateTime = when {
-            // Case 1: Window start is in the future -> schedule at window start
-            now.isBefore(windowStart) -> windowStart
+            // Case 1: Reminder start time is in the future -> schedule at reminder start
+            now.isBefore(reminderStart) -> reminderStart
 
-            // Case 2: Currently inside the window -> schedule next step or now
+            // Case 2: We are at or past reminder start time -> schedule next interval step
             else -> {
-                val intervalMinutes = calculateRepeatIntervalMinutes(totalDurationMinutes)
                 val potentialNext = now.plusMinutes(intervalMinutes.toLong())
-                if (potentialNext.isBefore(targetDateTime)) potentialNext else targetDateTime
+                if (potentialNext.isBefore(eventDateTime)) potentialNext else eventDateTime
             }
         }
 

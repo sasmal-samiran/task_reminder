@@ -11,19 +11,20 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 
 class TaskDetailViewModel(
     application: Application,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
-    
+
     private val dao = AppDatabase.getInstance(application).taskDao()
     private val alarmScheduler = AlarmScheduler(application)
     private val taskId: Long = savedStateHandle.get<Long>("taskId") ?: 0L
-    
+
     val task: StateFlow<TaskEntity?> = dao.getTaskByIdFlow(taskId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-        
+
     fun toggleComplete() {
         viewModelScope.launch {
             val t = task.value ?: return@launch
@@ -31,12 +32,12 @@ class TaskDetailViewModel(
             dao.setCompleted(t.id, newStatus)
             if (newStatus) {
                 alarmScheduler.cancelTaskReminder(t.id)
-            } else if (t.calculateTotalReminderMinutes() >= 0) {
+            } else if (t.getEventDateTime().isAfter(LocalDateTime.now())) {
                 alarmScheduler.scheduleTaskReminder(t)
             }
         }
     }
-    
+
     fun deleteTask(onDeleted: () -> Unit) {
         viewModelScope.launch {
             val t = task.value ?: return@launch

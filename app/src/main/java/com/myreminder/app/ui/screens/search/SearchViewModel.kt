@@ -10,6 +10,7 @@ import com.myreminder.app.notification.AlarmScheduler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = AppDatabase.getInstance(application).taskDao()
@@ -57,7 +58,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             if (task != null) {
                 if (completed) {
                     alarmScheduler.cancelTaskReminder(taskId)
-                } else if (task.calculateTotalReminderMinutes() >= 0) {
+                } else if (task.getEventDateTime().isAfter(LocalDateTime.now())) {
                     alarmScheduler.scheduleTaskReminder(task)
                 }
             }

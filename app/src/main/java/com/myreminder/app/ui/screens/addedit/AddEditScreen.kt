@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,51 +37,98 @@ fun AddEditScreen(
         }
     }
 
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
+    var showEventDatePicker by remember { mutableStateOf(false) }
+    var showEventTimePicker by remember { mutableStateOf(false) }
+    var showReminderDatePicker by remember { mutableStateOf(false) }
+    var showReminderTimePicker by remember { mutableStateOf(false) }
 
-    if (showDatePicker) {
+    // Event Date Picker Dialog
+    if (showEventDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = uiState.date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         )
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = { showEventDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
                         val selected = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                        viewModel.updateDate(selected)
+                        viewModel.updateEventDate(selected)
                     }
-                    showDatePicker = false
+                    showEventDatePicker = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showEventDatePicker = false }) { Text("Cancel") }
             }
         ) {
             DatePicker(state = datePickerState)
         }
     }
 
-    if (showTimePicker) {
+    // Event Time Picker Dialog
+    if (showEventTimePicker) {
         val timePickerState = rememberTimePickerState(
             initialHour = uiState.time?.hour ?: 18,
             initialMinute = uiState.time?.minute ?: 0
         )
         AlertDialog(
-            onDismissRequest = { showTimePicker = false },
+            onDismissRequest = { showEventTimePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.updateTime(LocalTime.of(timePickerState.hour, timePickerState.minute))
-                    showTimePicker = false
+                    viewModel.updateEventTime(LocalTime.of(timePickerState.hour, timePickerState.minute))
+                    showEventTimePicker = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showEventTimePicker = false }) { Text("Cancel") }
             },
-            text = {
-                TimePicker(state = timePickerState)
+            text = { TimePicker(state = timePickerState) }
+        )
+    }
+
+    // Reminder Start Date Picker Dialog
+    if (showReminderDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = uiState.reminderDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showReminderDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        val selected = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        viewModel.updateReminderDate(selected)
+                    }
+                    showReminderDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReminderDatePicker = false }) { Text("Cancel") }
             }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // Reminder Start Time Picker Dialog
+    if (showReminderTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = uiState.reminderTime?.hour ?: 9,
+            initialMinute = uiState.reminderTime?.minute ?: 0
+        )
+        AlertDialog(
+            onDismissRequest = { showReminderTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateReminderTime(LocalTime.of(timePickerState.hour, timePickerState.minute))
+                    showReminderTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReminderTimePicker = false }) { Text("Cancel") }
+            },
+            text = { TimePicker(state = timePickerState) }
         )
     }
 
@@ -132,7 +177,7 @@ fun AddEditScreen(
                 }
             }
 
-            // Informational Notice Banner
+            // Info Banner
             if (uiState.infoMessage != null) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -157,25 +202,26 @@ fun AddEditScreen(
                 }
             }
 
-            // Section 1: Task Details
+            // Title Input (Short Label & Placeholder)
             OutlinedTextField(
                 value = uiState.title,
                 onValueChange = viewModel::updateTitle,
-                label = { Text("Reminder / Task Title *") },
-                placeholder = { Text("e.g. Technical Interview / Submit Assignment") },
+                label = { Text("Title *") },
+                placeholder = { Text("Task title") },
                 modifier = Modifier.fillMaxWidth(),
                 isError = uiState.error != null && uiState.title.isBlank()
             )
 
+            // Company Input
             OutlinedTextField(
                 value = uiState.company,
                 onValueChange = viewModel::updateCompany,
-                label = { Text("Company / Organization") },
-                placeholder = { Text("e.g. OpenAI / Google / University") },
+                label = { Text("Company") },
+                placeholder = { Text("Company name") },
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Task Type Dropdown
+            // Type Dropdown (Default is DEADLINE)
             var typeExpanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = typeExpanded,
@@ -185,7 +231,7 @@ fun AddEditScreen(
                     value = uiState.type.displayName,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Task Type") },
+                    label = { Text("Type") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
@@ -207,25 +253,22 @@ fun AddEditScreen(
 
             HorizontalDivider()
 
-            // Section 2: Target Date & Target Time
-            Text(
-                "Target Date & Time (Due / Event Time)",
-                style = MaterialTheme.typography.titleMedium
-            )
+            // Event Date & Time (The actual event deadline)
+            Text("Event Date & Time", style = MaterialTheme.typography.titleMedium)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { showDatePicker = true },
+                    onClick = { showEventDatePicker = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = "Date", modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(uiState.date.format(DateTimeFormatter.ofPattern("d MMM yyyy")))
                 }
                 OutlinedButton(
-                    onClick = { showTimePicker = true },
+                    onClick = { showEventTimePicker = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Schedule, contentDescription = "Time", modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(uiState.time?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "Set Time")
                 }
@@ -233,69 +276,83 @@ fun AddEditScreen(
 
             HorizontalDivider()
 
-            // Section 3: Reminder Duration / Window
+            // Reminder Start Date & Time
+            Text("Reminder Start Date & Time", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Reminder Window (Duration Before Target)",
-                style = MaterialTheme.typography.titleMedium
+                "When to begin sending notifications",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { showReminderDatePicker = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(uiState.reminderDate.format(DateTimeFormatter.ofPattern("d MMM yyyy")))
+                }
+                OutlinedButton(
+                    onClick = { showReminderTimePicker = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(uiState.reminderTime?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "Set Time")
+                }
+            }
+
+            HorizontalDivider()
+
+            // Repeat Interval (Duration between two notifications)
+            Text("Repeat Interval", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Repeated notifications will be sent throughout this period before the target time.",
+                "Frequency of repeated notifications between reminder start and event time",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            var unitExpanded by remember { mutableStateOf(false) }
-            val unitOptions = listOf("MINUTES" to "Minutes", "HOURS" to "Hours", "DAYS" to "Days")
+            var intervalExpanded by remember { mutableStateOf(false) }
+            val intervalOptions = listOf(
+                30 to "30 minutes",
+                60 to "1 hour",
+                1440 to "1 day (Default)",
+                10080 to "1 week"
+            )
+            val currentIntervalStr = intervalOptions.find { it.first == uiState.intervalMinutes }?.second
+                ?: "${uiState.intervalMinutes} minutes"
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            ExposedDropdownMenuBox(
+                expanded = intervalExpanded,
+                onExpandedChange = { intervalExpanded = it }
             ) {
                 OutlinedTextField(
-                    value = if (uiState.reminderDurationValue > 0) uiState.reminderDurationValue.toString() else "",
-                    onValueChange = { str ->
-                        val parsed = str.filter { it.isDigit() }.toIntOrNull() ?: 1
-                        viewModel.updateReminderDuration(parsed, uiState.reminderDurationUnit)
-                    },
-                    label = { Text("Duration") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(0.45f)
+                    value = currentIntervalStr,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Repeat Interval") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = intervalExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
-
-                ExposedDropdownMenuBox(
-                    expanded = unitExpanded,
-                    onExpandedChange = { unitExpanded = it },
-                    modifier = Modifier.weight(0.55f)
+                ExposedDropdownMenu(
+                    expanded = intervalExpanded,
+                    onDismissRequest = { intervalExpanded = false }
                 ) {
-                    OutlinedTextField(
-                        value = unitOptions.find { it.first == uiState.reminderDurationUnit }?.second ?: "Hours",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Unit") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false }
-                    ) {
-                        unitOptions.forEach { (unitKey, unitLabel) ->
-                            DropdownMenuItem(
-                                text = { Text(unitLabel) },
-                                onClick = {
-                                    viewModel.updateReminderDuration(uiState.reminderDurationValue, unitKey)
-                                    unitExpanded = false
-                                }
-                            )
-                        }
+                    intervalOptions.forEach { (mins, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.updateInterval(mins)
+                                intervalExpanded = false
+                            }
+                        )
                     }
                 }
             }
 
-            // Explanation box for Reminder Window
+            // Schedule Explanation Card
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -303,14 +360,14 @@ fun AddEditScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.NotificationsActive,
+                        Icons.Default.Info,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = uiState.getWindowExplanation(),
+                        text = uiState.getScheduleExplanation(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -319,8 +376,8 @@ fun AddEditScreen(
 
             HorizontalDivider()
 
-            // Section 4: Priority Selector
-            Text("Notification Priority", style = MaterialTheme.typography.titleMedium)
+            // Priority
+            Text("Priority", style = MaterialTheme.typography.titleMedium)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Priority.values().forEach { priority ->
                     FilterChip(
@@ -343,12 +400,12 @@ fun AddEditScreen(
 
             HorizontalDivider()
 
-            // Section 5: Extra Details
+            // Optional Details (Meeting Link, Location, Notes)
             OutlinedTextField(
                 value = uiState.meetingLink,
                 onValueChange = viewModel::updateMeetingLink,
-                label = { Text("Meeting / Test Link") },
-                placeholder = { Text("https://meet.google.com/... or Zoom link") },
+                label = { Text("Meeting Link") },
+                placeholder = { Text("https://meet.google.com/...") },
                 leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -356,7 +413,8 @@ fun AddEditScreen(
             OutlinedTextField(
                 value = uiState.location,
                 onValueChange = viewModel::updateLocation,
-                label = { Text("Location / Campus") },
+                label = { Text("Location") },
+                placeholder = { Text("Location") },
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -364,7 +422,8 @@ fun AddEditScreen(
             OutlinedTextField(
                 value = uiState.notes,
                 onValueChange = viewModel::updateNotes,
-                label = { Text("Notes / Preparation Checklist") },
+                label = { Text("Notes") },
+                placeholder = { Text("Additional notes") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3
             )

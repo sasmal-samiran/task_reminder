@@ -43,7 +43,7 @@ class BootReceiver : BroadcastReceiver() {
                     val now = LocalDateTime.now()
 
                     upcomingTasks.forEach { task ->
-                        if (!task.completed && task.getTargetDateTime().isAfter(now)) {
+                        if (!task.completed && task.getEventDateTime().isAfter(now)) {
                             scheduler.scheduleTaskReminder(task)
                         }
                     }

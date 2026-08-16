@@ -17,12 +17,14 @@ class SettingsDataStore(private val context: Context) {
         val MORNING_REMINDER_MINUTE = intPreferencesKey("morning_reminder_minute")
         val DEFAULT_REMINDER_MINUTES = intPreferencesKey("default_reminder_minutes")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val CUSTOM_NOTIFICATION_SOUND_URI = stringPreferencesKey("custom_notification_sound_uri")
     }
 
     val morningReminderHour: Flow<Int> = context.settingsDataStore.data.map { it[MORNING_REMINDER_HOUR] ?: 7 }
     val morningReminderMinute: Flow<Int> = context.settingsDataStore.data.map { it[MORNING_REMINDER_MINUTE] ?: 0 }
-    val defaultReminderMinutes: Flow<Int> = context.settingsDataStore.data.map { it[DEFAULT_REMINDER_MINUTES] ?: 30 }
+    val defaultReminderMinutes: Flow<Int> = context.settingsDataStore.data.map { it[DEFAULT_REMINDER_MINUTES] ?: 1440 }
     val notificationsEnabled: Flow<Boolean> = context.settingsDataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }
+    val customNotificationSoundUri: Flow<String?> = context.settingsDataStore.data.map { it[CUSTOM_NOTIFICATION_SOUND_URI] }
 
     suspend fun setMorningReminderTime(hour: Int, minute: Int) {
         context.settingsDataStore.edit {
@@ -39,7 +41,17 @@ class SettingsDataStore(private val context: Context) {
         context.settingsDataStore.edit { it[NOTIFICATIONS_ENABLED] = enabled }
     }
 
-    // Synchronous getters for use in BroadcastReceivers
+    suspend fun setCustomNotificationSoundUri(uriString: String?) {
+        context.settingsDataStore.edit {
+            if (uriString != null) {
+                it[CUSTOM_NOTIFICATION_SOUND_URI] = uriString
+            } else {
+                it.remove(CUSTOM_NOTIFICATION_SOUND_URI)
+            }
+        }
+    }
+
+    // Synchronous getters for use in BroadcastReceivers & Notifications
     suspend fun getNotificationsEnabledSync(): Boolean {
         return context.settingsDataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }.first()
     }
@@ -50,5 +62,9 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun getMorningMinuteSync(): Int {
         return context.settingsDataStore.data.map { it[MORNING_REMINDER_MINUTE] ?: 0 }.first()
+    }
+
+    suspend fun getCustomNotificationSoundUriSync(): String? {
+        return context.settingsDataStore.data.map { it[CUSTOM_NOTIFICATION_SOUND_URI] }.first()
     }
 }

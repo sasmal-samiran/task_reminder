@@ -34,20 +34,19 @@ class AlarmReceiver : BroadcastReceiver() {
                     val notificationHelper = NotificationHelper(context)
                     notificationHelper.showTaskReminder(task)
 
-                    // Check if we should schedule the next repeated alarm in this window
+                    // Check if we should schedule the next interval alarm
                     val now = LocalDateTime.now()
-                    val targetDateTime = task.getTargetDateTime()
+                    val eventDateTime = task.getEventDateTime()
 
-                    if (now.isBefore(targetDateTime)) {
-                        val scheduler = AlarmScheduler(context)
-                        val totalDurationMinutes = task.calculateTotalReminderMinutes()
-                        val intervalMinutes = scheduler.calculateRepeatIntervalMinutes(totalDurationMinutes)
+                    if (now.isBefore(eventDateTime)) {
+                        val intervalMinutes = if (task.intervalMinutes > 0) task.intervalMinutes else 1440
                         val nextAlarmTime = now.plusMinutes(intervalMinutes.toLong())
 
-                        // Only schedule if the next alarm time is still within or at target time
-                        val finalNextAlarm = if (nextAlarmTime.isBefore(targetDateTime)) nextAlarmTime else targetDateTime
+                        // Capped at eventDateTime
+                        val finalNextAlarm = if (nextAlarmTime.isBefore(eventDateTime)) nextAlarmTime else eventDateTime
                         val epochMillis = finalNextAlarm.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+                        val scheduler = AlarmScheduler(context)
                         if (epochMillis > System.currentTimeMillis() && scheduler.canScheduleExactAlarms()) {
                             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
                             val nextIntent = Intent(context, AlarmReceiver::class.java).apply {

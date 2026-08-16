@@ -11,56 +11,70 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.myreminder.app.R
+import com.myreminder.app.data.local.SettingsDataStore
 import com.myreminder.app.data.local.TaskEntity
 import com.myreminder.app.data.model.Priority
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 class NotificationHelper(private val context: Context) {
 
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val settingsDataStore = SettingsDataStore(context)
 
     init {
         createChannels()
     }
 
-    private fun getAlarmSoundUri(): Uri {
-        return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    private fun getSelectedSoundUri(): Uri {
+        return try {
+            val customUriStr = runBlocking { settingsDataStore.getCustomNotificationSoundUriSync() }
+            if (!customUriStr.isNullOrBlank()) {
+                Uri.parse(customUriStr)
+            } else {
+                Settings.System.DEFAULT_NOTIFICATION_URI
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            }
+        } catch (e: Exception) {
+            Settings.System.DEFAULT_NOTIFICATION_URI
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        }
     }
 
     private fun getAudioAttributes(): AudioAttributes {
         return AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
             .build()
     }
 
     fun createChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val soundUri = getAlarmSoundUri()
+            val soundUri = getSelectedSoundUri()
             val audioAttributes = getAudioAttributes()
-            val vibrationPattern = longArrayOf(0, 600, 200, 600, 200, 600)
+            val vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
 
-            // High Priority Channel - Loud Alarm Sound & Heavy Vibration
+            // High Priority Channel - High Urgency
             val highChannel = NotificationChannel(
                 CHANNEL_HIGH_PRIORITY,
-                "Critical & High Priority Reminders",
+                "Critical Reminders & Deadlines",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Urgent interview and task reminders with loud alarm audio"
+                description = "High priority task and interview notifications"
                 enableVibration(true)
                 this.vibrationPattern = vibrationPattern
                 setSound(soundUri, audioAttributes)
                 enableLights(true)
-                lightColor = 0xFFC62828.toInt()
+                lightColor = 0xFFEF4444.toInt()
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
 
@@ -70,12 +84,12 @@ class NotificationHelper(private val context: Context) {
                 "Medium Priority Reminders",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Standard task and test reminders"
+                description = "Medium priority task notifications"
                 enableVibration(true)
                 this.vibrationPattern = longArrayOf(0, 400, 200, 400)
                 setSound(soundUri, audioAttributes)
                 enableLights(true)
-                lightColor = 0xFFD97706.toInt()
+                lightColor = 0xFFF59E0B.toInt()
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
 
@@ -85,10 +99,10 @@ class NotificationHelper(private val context: Context) {
                 "Low Priority Reminders",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Low urgency reminders"
+                description = "Standard low urgency task notifications"
                 enableVibration(true)
                 setSound(soundUri, audioAttributes)
-                lightColor = 0xFF1E40AF.toInt()
+                lightColor = 0xFF3B82F6.toInt()
             }
 
             // Morning Summary Channel
@@ -109,35 +123,29 @@ class NotificationHelper(private val context: Context) {
     }
 
     /**
-     * Formats date into human-friendly representation:
-     * - "Today"
-     * - "Tomorrow"
-     * - "16 Aug" or "16 August"
+     * Formats date into human-friendly representation matching reference:
+     * - "Today, 16 Aug"
+     * - "Tomorrow, 17 Aug"
+     * - "24 Aug" (or "16 August")
      */
     fun formatHumanFriendlyDate(date: LocalDate): String {
         val today = LocalDate.now()
         return when {
-            date.isEqual(today) -> "Today"
-            date.isEqual(today.plusDays(1)) -> "Tomorrow"
+            date.isEqual(today) -> "Today, ${date.format(DateTimeFormatter.ofPattern("d MMM"))}"
+            date.isEqual(today.plusDays(1)) -> "Tomorrow, ${date.format(DateTimeFormatter.ofPattern("d MMM"))}"
             date.year == today.year -> date.format(DateTimeFormatter.ofPattern("d MMM"))
             else -> date.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
         }
     }
 
-    /**
-     * Formats time (e.g. "6:00 PM")
-     */
-    fun formatHumanFriendlyTime(time: java.time.LocalTime?): String {
+    fun formatHumanFriendlyTime(time: LocalTime?): String {
         return time?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "All Day"
     }
 
-    /**
-     * Combined string e.g. "Today, 6:00 PM" or "Tomorrow, 9:00 AM" or "16 Aug, 6:00 PM"
-     */
-    fun formatFullDateTimeString(date: LocalDate, time: java.time.LocalTime?): String {
+    fun formatFullDateTimeString(date: LocalDate, time: LocalTime?): String {
         val dateStr = formatHumanFriendlyDate(date)
         val timeStr = formatHumanFriendlyTime(time)
-        return if (time != null) "$dateStr, $timeStr" else dateStr
+        return "$dateStr | $timeStr"
     }
 
     fun showTaskReminder(task: TaskEntity) {
@@ -164,66 +172,87 @@ class NotificationHelper(private val context: Context) {
         val dateText = formatHumanFriendlyDate(task.date)
         val timeText = formatHumanFriendlyTime(task.time)
         val fullDateTimeText = formatFullDateTimeString(task.date, task.time)
-        val companyText = if (task.company.isNotBlank()) task.company else "MyReminder"
+        val companyText = if (task.company.isNotBlank()) task.company else task.type.displayName
+
+        val notesText = when {
+            !task.notes.isNullOrBlank() -> task.notes
+            !task.location.isNullOrBlank() -> "Location: ${task.location}"
+            !task.meetingLink.isNullOrBlank() -> "Meeting: ${task.meetingLink}"
+            else -> "Reminder for your scheduled ${task.type.displayName}."
+        }
+
+        val companyColor = when (task.priority) {
+            Priority.HIGH -> 0xFFEF4444.toInt() // Red
+            Priority.MEDIUM -> 0xFFF59E0B.toInt() // Amber
+            Priority.LOW -> 0xFF3B82F6.toInt() // Blue
+        }
 
         // Build Custom Collapsed RemoteViews
         val collapsedViews = RemoteViews(context.packageName, R.layout.notification_task_reminder_collapsed).apply {
-            setTextViewText(R.id.notification_company, companyText)
             setTextViewText(R.id.notification_title, task.title)
+            setTextViewText(R.id.notification_company, companyText)
+            setTextColor(R.id.notification_company, companyColor)
             setTextViewText(R.id.notification_date, dateText)
             setTextViewText(R.id.notification_time, timeText)
+            setTextViewText(R.id.notification_notes, notesText)
 
             when (task.priority) {
                 Priority.HIGH -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_high)
-                    setInt(R.id.notification_bell_container, "setBackgroundResource", R.drawable.bg_bell_circle_high)
+                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_high)
+                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_high)
                 }
                 Priority.MEDIUM -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_medium)
-                    setInt(R.id.notification_bell_container, "setBackgroundResource", R.drawable.bg_bell_circle_medium)
+                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_medium)
+                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_medium)
                 }
                 Priority.LOW -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_low)
-                    setInt(R.id.notification_bell_container, "setBackgroundResource", R.drawable.bg_bell_circle_low)
+                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_low)
+                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_low)
                 }
             }
         }
 
-        // Build Custom Expanded RemoteViews (Complete text wrapping, never truncated)
+        // Build Custom Expanded RemoteViews (Full non-truncated text wrapping)
         val expandedViews = RemoteViews(context.packageName, R.layout.notification_task_reminder_expanded).apply {
-            setTextViewText(R.id.notification_company, companyText)
-            setTextViewText(R.id.notification_type, task.type.displayName)
             setTextViewText(R.id.notification_title, task.title)
+            setTextViewText(R.id.notification_company, "$companyText • ${task.type.displayName}")
+            setTextColor(R.id.notification_company, companyColor)
             setTextViewText(R.id.notification_date, dateText)
             setTextViewText(R.id.notification_time, timeText)
 
-            if (!task.location.isNullOrBlank() || !task.notes.isNullOrBlank()) {
-                val detailInfo = listOfNotNull(task.location?.takeIf { it.isNotBlank() }, task.notes?.takeIf { it.isNotBlank() }).joinToString(" • ")
-                setTextViewText(R.id.notification_details, detailInfo)
-                setViewVisibility(R.id.notification_details, View.VISIBLE)
-            } else {
-                setViewVisibility(R.id.notification_details, View.GONE)
+            val fullDetails = buildString {
+                if (!task.notes.isNullOrBlank()) append(task.notes)
+                if (!task.location.isNullOrBlank()) {
+                    if (isNotEmpty()) append("\n📍 ") else append("📍 ")
+                    append(task.location)
+                }
+                if (!task.meetingLink.isNullOrBlank()) {
+                    if (isNotEmpty()) append("\n🔗 ") else append("🔗 ")
+                    append(task.meetingLink)
+                }
+                if (isEmpty()) append("Scheduled ${task.type.displayName} deadline reminder.")
             }
+            setTextViewText(R.id.notification_notes, fullDetails)
 
             when (task.priority) {
                 Priority.HIGH -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_high)
-                    setInt(R.id.notification_bell_container, "setBackgroundResource", R.drawable.bg_bell_circle_high)
+                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_high)
+                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_high)
                 }
                 Priority.MEDIUM -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_medium)
-                    setInt(R.id.notification_bell_container, "setBackgroundResource", R.drawable.bg_bell_circle_medium)
+                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_medium)
+                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_medium)
                 }
                 Priority.LOW -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_low)
-                    setInt(R.id.notification_bell_container, "setBackgroundResource", R.drawable.bg_bell_circle_low)
+                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_low)
+                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_low)
                 }
             }
         }
 
-        val soundUri = getAlarmSoundUri()
+        val soundUri = getSelectedSoundUri()
         val vibrationPattern = when (task.priority) {
-            Priority.HIGH -> longArrayOf(0, 600, 200, 600, 200, 600)
+            Priority.HIGH -> longArrayOf(0, 500, 200, 500, 200, 500)
             Priority.MEDIUM -> longArrayOf(0, 400, 200, 400)
             Priority.LOW -> longArrayOf(0, 200, 100, 200)
         }
@@ -236,23 +265,23 @@ class NotificationHelper(private val context: Context) {
 
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("$companyText: ${task.title}")
-            .setContentText("$fullDateTimeText — ${task.type.displayName}")
+            .setContentTitle(task.title)
+            .setContentText("$companyText | $fullDateTimeText")
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .setBigContentTitle("$companyText (${task.priority.displayName} Priority)")
-                    .bigText("${task.title}\n\n📅 $fullDateTimeText\n📌 ${task.type.displayName}")
+                    .setBigContentTitle(task.title)
+                    .bigText("${task.company}\n$notesText\n\n📅 $fullDateTimeText")
             )
             .setCustomContentView(collapsedViews)
             .setCustomBigContentView(expandedViews)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setPriority(notificationPriority)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setSound(soundUri)
             .setVibrate(vibrationPattern)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setColor(task.priority.hexColorInt.toInt())
+            .setColor(companyColor)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
         notificationManager.notify(task.id.toInt(), builder.build())
@@ -300,9 +329,9 @@ class NotificationHelper(private val context: Context) {
     }
 
     companion object {
-        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority"
-        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority"
-        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority"
+        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority_v2"
+        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority_v2"
+        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority_v2"
         const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary"
         const val MORNING_SUMMARY_ID = 99999
 

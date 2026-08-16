@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
@@ -56,7 +57,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             if (task != null) {
                 if (completed) {
                     alarmScheduler.cancelTaskReminder(taskId)
-                } else if (task.calculateTotalReminderMinutes() >= 0) {
+                } else if (task.getEventDateTime().isAfter(LocalDateTime.now())) {
                     alarmScheduler.scheduleTaskReminder(task)
                 }
             }

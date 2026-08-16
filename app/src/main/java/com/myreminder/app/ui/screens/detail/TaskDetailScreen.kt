@@ -109,30 +109,45 @@ fun TaskDetailScreen(
 
             HorizontalDivider()
 
-            val datePrefix = when {
+            val eventDatePrefix = when {
                 t.date.isEqual(LocalDate.now()) -> "Today"
                 t.date.isEqual(LocalDate.now().plusDays(1)) -> "Tomorrow"
                 else -> t.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
             }
 
+            // Event Date & Time
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Event, contentDescription = "Date", tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Event, contentDescription = "Event Date", tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(datePrefix, style = MaterialTheme.typography.bodyLarge)
-                if (t.time != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("•")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(t.time.format(DateTimeFormatter.ofPattern("h:mm a")), style = MaterialTheme.typography.bodyLarge)
+                Column {
+                    Text("Event Deadline", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("$eventDatePrefix • ${t.time?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "All Day"}", style = MaterialTheme.typography.bodyLarge)
                 }
             }
 
-            // Reminder window info
-            val durationText = "${t.reminderDurationValue} ${t.reminderDurationUnit.lowercase()}"
+            // Reminder Start Date & Time
+            val reminderDatePrefix = when {
+                t.reminderDate.isEqual(LocalDate.now()) -> "Today"
+                t.reminderDate.isEqual(LocalDate.now().plusDays(1)) -> "Tomorrow"
+                else -> t.reminderDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder Window", tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder Start", tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Reminder Window: Repeated during $durationText before target", style = MaterialTheme.typography.bodyMedium)
+                Column {
+                    Text("Reminders Start", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("$reminderDatePrefix • ${t.reminderTime?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "All Day"}", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            // Repeat Interval
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Repeat, contentDescription = "Repeat Interval", tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Repeat Frequency", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("Every ${t.getIntervalDisplayName()} until event deadline", style = MaterialTheme.typography.bodyMedium)
+                }
             }
 
             if (!t.location.isNullOrBlank()) {
@@ -150,7 +165,7 @@ fun TaskDetailScreen(
                 }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Link, contentDescription = "Link")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Join Interview / Meeting")
+                    Text("Join Link")
                 }
             }
 
