@@ -59,7 +59,7 @@ class AlarmScheduler(private val context: Context) {
             android.util.Log.w("AlarmScheduler", "Computed nextAlarmTime ($nextAlarmTime / $scheduledMillis) is <= now ($nowMs). Bumping to now+1s")
             scheduledMillis = nowMs + 1000
         }
-n        val intent = Intent(context, AlarmReceiver::class.java).apply {
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = "com.myreminder.app.TASK_REMINDER"
             putExtra("TASK_ID", task.id)
         }
