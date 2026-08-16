@@ -32,23 +32,35 @@ class BootReceiver : BroadcastReceiver() {
                 val scheduler = AlarmScheduler(context)
                 val settings = SettingsDataStore(context)
 
+                android.util.Log.d("BootReceiver", "BootReceiver triggered: restoring alarms (notificationsEnabled=${settings.getNotificationsEnabledSync()})")
+
                 if (settings.getNotificationsEnabledSync()) {
                     // Restore morning summary alarm
                     val hour = settings.getMorningHourSync()
                     val minute = settings.getMorningMinuteSync()
-                    scheduler.scheduleMorningSummary(hour, minute)
-
-                    // Restore all task reminder alarms
+                    try {
+                        scheduler.scheduleMorningSummary(hour, minute)
+                        android.util.Log.d("BootReceiver", "Restored morning summary alarm for $hour:$minute")
+                    } catch (ex: Exception) {
+                        android.util.Log.e("BootReceiver", "Failed to restore morning summary alarm: ${ex.message}", ex)
+                    }
+                    // Restore all task reminder alarms
                     val db = AppDatabase.getInstance(context)
                     val today = LocalDate.now()
                     val upcomingTasks = db.taskDao().getTasksWithReminders(today)
                     val now = LocalDateTime.now()
-
-                    upcomingTasks.forEach { task ->
-                        if (!task.completed && task.getEventDateTime().isAfter(now)) {
-                            scheduler.scheduleTaskReminder(task)
+                    upcomingTasks.forEach { task ->
+                        try {
+                            if (!task.completed && task.getEventDateTime().isAfter(now)) {
+                                scheduler.scheduleTaskReminder(task)
+                                android.util.Log.d("BootReceiver", "Restored alarm for task=${task.id} title='${task.title}'")
+                            }
+                        } catch (ex: Exception) {
+                            android.util.Log.e("BootReceiver", "Failed to restore alarm for task=${task.id}: ${ex.message}", ex)
                         }
                     }
+                } else {
+                    android.util.Log.d("BootReceiver", "Notifications disabled in settings; skipping alarm restoration")
                 }
             } finally {
                 pendingResult.finish()

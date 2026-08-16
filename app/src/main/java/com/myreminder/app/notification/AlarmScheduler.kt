@@ -52,10 +52,14 @@ class AlarmScheduler(private val context: Context) {
         }
 
         val epochMillis = nextAlarmTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        if (epochMillis <= System.currentTimeMillis()) return
-        if (!canScheduleExactAlarms()) return
-
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
+        // Ensure we schedule in the future (allow small clock skews)
+        val nowMs = System.currentTimeMillis()
+        var scheduledMillis = epochMillis
+        if (scheduledMillis <= nowMs + 500) {
+            android.util.Log.w("AlarmScheduler", "Computed nextAlarmTime ($nextAlarmTime / $scheduledMillis) is <= now ($nowMs). Bumping to now+1s")
+            scheduledMillis = nowMs + 1000
+        }
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = "com.myreminder.app.TASK_REMINDER"
             putExtra("TASK_ID", task.id)
         }
@@ -67,11 +71,28 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            epochMillis,
-            pendingIntent
-        )
+        // Cancel any previous duplicate before scheduling to avoid duplicates
+        try {
+            alarmManager.cancel(pendingIntent)
+        } catch (ex: Exception) {
+            android.util.Log.w("AlarmScheduler", "Failed to cancel existing pending intent before scheduling: ${ex.message}")
+        }
+
+        if (canScheduleExactAlarms()) {
+            android.util.Log.d("AlarmScheduler", "Scheduling exact alarm for task=${task.id} at ${scheduledMillis} (${java.time.Instant.ofEpochMilli(scheduledMillis)})")
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                scheduledMillis,
+                pendingIntent
+            )
+        } else {
+            android.util.Log.d("AlarmScheduler", "Exact alarms not available; scheduling inexact alarm for task=${task.id} at ${scheduledMillis} (${java.time.Instant.ofEpochMilli(scheduledMillis)})")
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                scheduledMillis,
+                pendingIntent
+            )
+        }
     }
 
     fun cancelTaskReminder(taskId: Long) {
@@ -91,33 +112,45 @@ class AlarmScheduler(private val context: Context) {
     }
 
     fun scheduleMorningSummary(hour: Int, minute: Int) {
-        if (!canScheduleExactAlarms()) return
-
         val now = LocalDateTime.now()
         var alarmTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
 
         if (alarmTime.isBefore(now) || alarmTime.isEqual(now)) {
             alarmTime = alarmTime.plusDays(1)
         }
-
-        val epochMillis = alarmTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-        val intent = Intent(context, MorningSummaryReceiver::class.java).apply {
+        var epochMillis = alarmTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val intent = Intent(context, MorningSummaryReceiver::class.java).apply {
             action = "com.myreminder.app.MORNING_SUMMARY"
         }
-
-        val pendingIntent = PendingIntent.getBroadcast(
+        val pendingIntent = PendingIntent.getBroadcast(
             context,
             MORNING_SUMMARY_REQ_CODE,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            epochMillis,
-            pendingIntent
-        )
+        try {
+            alarmManager.cancel(pendingIntent)
+        } catch (ex: Exception) {
+            android.util.Log.w("AlarmScheduler", "Failed to cancel existing morning summary pending intent: ${ex.message}")
+        }
+        if (epochMillis <= System.currentTimeMillis() + 500) {
+            epochMillis = System.currentTimeMillis() + 1000
+        }
+        if (canScheduleExactAlarms()) {
+            android.util.Log.d("AlarmScheduler", "Scheduling exact morning summary at ${epochMillis} (${java.time.Instant.ofEpochMilli(epochMillis)})")
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                epochMillis,
+                pendingIntent
+            )
+        } else {
+            android.util.Log.d("AlarmScheduler", "Exact alarms not available; scheduling inexact morning summary at ${epochMillis} (${java.time.Instant.ofEpochMilli(epochMillis)})")
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                epochMillis,
+                pendingIntent
+            )
+        }
     }
 
     fun cancelMorningSummary() {
@@ -145,5 +178,17 @@ class AlarmScheduler(private val context: Context) {
 
     companion object {
         const val MORNING_SUMMARY_REQ_CODE = 99999
+
+        fun requestExactAlarmPermission(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    context.startActivity(intent)
+                } catch (ex: Exception) {
+                    android.util.Log.w("AlarmScheduler", "Failed to open exact alarm settings: ${ex.message}")
+                }
+            }
+        }
     }
 }
