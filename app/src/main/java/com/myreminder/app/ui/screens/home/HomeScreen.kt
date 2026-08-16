@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Task
@@ -81,6 +82,17 @@ fun HomeScreen(
             }
         }
     ) { paddingValues ->
+        val context = androidx.compose.ui.platform.LocalContext.current
+        var hasPermission by androidx.compose.runtime.remember {
+            androidx.compose.runtime.mutableStateOf(com.myreminder.app.notification.NotificationHelper.hasNotificationPermission(context))
+        }
+
+        val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            hasPermission = isGranted
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -88,6 +100,32 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (!hasPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Icon(Icons.Default.NotificationsOff, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Notifications are disabled", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("The app cannot remind you about your tasks until notification permission is granted.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Allow Notifications", color = MaterialTheme.colorScheme.onError)
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 Text("Today's Tasks", style = MaterialTheme.typography.titleLarge)
             }

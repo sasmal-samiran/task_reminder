@@ -79,6 +79,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun sendTestNotification() {
+        val helper = com.myreminder.app.notification.NotificationHelper(getApplication())
+        val task = com.myreminder.app.data.local.TaskEntity(
+            id = 99991L,
+            title = "Test Reminder: Technical Interview",
+            company = "Google",
+            type = com.myreminder.app.data.model.TaskType.INTERVIEW,
+            date = java.time.LocalDate.now(),
+            time = java.time.LocalTime.now(),
+            meetingLink = "https://meet.google.com/abc-defg-hij",
+            location = "Google Meet",
+            priority = com.myreminder.app.data.model.Priority.HIGH,
+            notes = "This is a test notification confirming your reminders and alert styles work properly."
+        )
+        helper.showTaskReminder(task, notificationSoundUri.value)
+    }
+
     /**
      * Gets the display name for a ringtone URI.
      */

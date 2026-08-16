@@ -55,6 +55,13 @@ class NotificationHelper(private val context: Context) {
 
     fun createChannels(customSoundUri: String? = null) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                notificationManager.deleteNotificationChannel("channel_task_high_priority")
+                notificationManager.deleteNotificationChannel("channel_task_medium_priority")
+                notificationManager.deleteNotificationChannel("channel_task_low_priority")
+                notificationManager.deleteNotificationChannel("channel_morning_summary")
+            } catch (_: Exception) {}
+
             val soundUri = getNotificationSoundUri(customSoundUri)
             val audioAttributes = getAudioAttributes()
 
@@ -314,10 +321,10 @@ class NotificationHelper(private val context: Context) {
     }
 
     companion object {
-        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority"
-        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority"
-        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority"
-        const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary"
+        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority_v3"
+        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority_v3"
+        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority_v3"
+        const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary_v3"
         const val MORNING_SUMMARY_ID = 99999
 
         fun hasNotificationPermission(context: Context): Boolean {
