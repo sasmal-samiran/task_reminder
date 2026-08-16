@@ -28,18 +28,18 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val now = LocalDateTime.now()
-        val action = intent.action
+        val receivedAction = intent.action
         val taskId = intent.getLongExtra("TASK_ID", -1L)
 
         Log.d(TAG, "==================================================")
         Log.d(TAG, "ALARM TRIGGERED:")
         Log.d(TAG, "  Trigger Time: ${now.format(DATE_TIME_FORMAT)}")
-        Log.d(TAG, "  Action:       $action")
+        Log.d(TAG, "  Action:       $receivedAction")
         Log.d(TAG, "  Task ID:      $taskId")
         Log.d(TAG, "==================================================")
 
-        if (action != "com.myreminder.app.TASK_REMINDER" || taskId == -1L) {
-            Log.w(TAG, "Invalid action ($action) or missing task ID ($taskId). Ignoring.")
+        if (receivedAction != "com.myreminder.app.TASK_REMINDER" || taskId == -1L) {
+            Log.w(TAG, "Invalid action ($receivedAction) or missing task ID ($taskId). Ignoring.")
             return
         }
 

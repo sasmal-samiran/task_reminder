@@ -22,12 +22,12 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
+        val bootAction = intent.action
         val now = LocalDateTime.now()
 
         Log.d(TAG, "==================================================")
         Log.d(TAG, "DEVICE BOOT / RESTART DETECTED:")
-        Log.d(TAG, "  Action:    $action")
+        Log.d(TAG, "  Action:    $bootAction")
         Log.d(TAG, "  Boot Time: ${now.format(DATE_TIME_FORMAT)}")
         Log.d(TAG, "==================================================")
 
@@ -39,8 +39,8 @@ class BootReceiver : BroadcastReceiver() {
             "com.htc.intent.action.QUICKBOOT_POWERON"
         )
 
-        if (action !in validActions) {
-            Log.w(TAG, "Received unhandled action: $action. Skipping.")
+        if (bootAction !in validActions) {
+            Log.w(TAG, "Received unhandled action: $bootAction. Skipping.")
             return
         }
 
