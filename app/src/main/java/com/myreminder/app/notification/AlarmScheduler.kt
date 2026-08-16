@@ -53,9 +53,7 @@ class AlarmScheduler(private val context: Context) {
 
         val epochMillis = nextAlarmTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         if (epochMillis <= System.currentTimeMillis()) return
-        if (!canScheduleExactAlarms()) return
-
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
+n        val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = "com.myreminder.app.TASK_REMINDER"
             putExtra("TASK_ID", task.id)
         }
@@ -67,11 +65,20 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            epochMillis,
-            pendingIntent
-        )
+        if (canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                epochMillis,
+                pendingIntent
+            )
+        } else {
+            // Fall back to an inexact alarm so reminders still fire approximately when exact alarms are disallowed
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                epochMillis,
+                pendingIntent
+            )
+        }
     }
 
     fun cancelTaskReminder(taskId: Long) {
@@ -113,11 +120,20 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            epochMillis,
-            pendingIntent
-        )
+        if (canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                epochMillis,
+                pendingIntent
+            )
+        } else {
+            // Fall back to inexact alarm for devices/users that disallow exact alarms
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                epochMillis,
+                pendingIntent
+            )
+        }
     }
 
     fun cancelMorningSummary() {
