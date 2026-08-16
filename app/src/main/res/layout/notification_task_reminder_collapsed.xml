@@ -4,65 +4,61 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="8dp"
-    android:background="@drawable/bg_notification_card_v2_high"
-    android:gravity="center_vertical">
+    android:background="@drawable/bg_notification_card_dark"
+    android:padding="0dp">
 
-    <!-- Left Vertical Glowing Priority Pill -->
+    <!-- Left Priority Pill Bar -->
     <View
-        android:id="@+id/notification_priority_pill"
+        android:id="@+id/notification_priority_bar"
         android:layout_width="6dp"
         android:layout_height="match_parent"
-        android:layout_marginStart="4dp"
-        android:layout_marginEnd="10dp"
-        android:layout_marginVertical="4dp"
+        android:layout_marginStart="0dp"
         android:background="@drawable/bg_priority_pill_high" />
 
-    <!-- Main Content Column -->
+    <!-- Content -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:paddingVertical="4dp"
-        android:paddingEnd="4dp">
+        android:padding="12dp">
 
-        <!-- Top Row: Title (Left) + Date/Time Capsule (Right) -->
-        <LinearLayout
+        <!-- Top Row: Title + DateTime Badge -->
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="top">
+            android:layout_height="wrap_content">
 
+            <!-- Task Title (bold, white, wraps) -->
             <TextView
                 android:id="@+id/notification_title"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
+                android:layout_toStartOf="@+id/notification_datetime_badge"
                 android:text="Task Title"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
-                android:maxLines="2"
-                android:ellipsize="end" />
+                android:maxLines="3"
+                android:ellipsize="end"
+                android:layout_marginEnd="8dp" />
 
-            <!-- Date & Time Capsule Badge -->
+            <!-- DateTime Badge -->
             <LinearLayout
-                android:id="@+id/notification_datetime_capsule"
+                android:id="@+id/notification_datetime_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_datetime_capsule"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="4dp">
+                android:background="@drawable/bg_datetime_badge"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="5dp"
+                android:gravity="center_vertical">
 
                 <ImageView
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:src="@drawable/ic_calendar_small"
-                    android:tint="#FFFFFF"
                     android:contentDescription="Calendar" />
 
                 <TextView
@@ -71,69 +67,47 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
                     android:text="Today, 16 Aug"
-                    android:textColor="#FFFFFF"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:textColor="#B0B0C8"
+                    android:textSize="11sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="4dp"
                     android:text="|"
-                    android:textColor="#94A3B8"
-                    android:textSize="10sp" />
+                    android:textColor="#555570"
+                    android:textSize="11sp" />
 
                 <TextView
                     android:id="@+id/notification_time"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="6:00 PM"
-                    android:textColor="#FFFFFF"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:textColor="#B0B0C8"
+                    android:textSize="11sp" />
             </LinearLayout>
-        </LinearLayout>
+        </RelativeLayout>
 
-        <!-- Middle Row: Company Name & Chevron -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/notification_company"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="OpenAI"
-                android:textColor="#EF4444"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:singleLine="true"
-                android:ellipsize="end" />
-
-            <ImageView
-                android:id="@+id/notification_chevron"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:src="@drawable/ic_chevron_right"
-                android:contentDescription="Chevron" />
-        </LinearLayout>
-
-        <!-- Bottom Row: Notes / Description -->
+        <!-- Company name in accent color -->
         <TextView
-            android:id="@+id/notification_notes"
-            android:layout_width="match_parent"
+            android:id="@+id/notification_company"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="Notes or description of the task."
-            android:textColor="#CBD5E1"
-            android:textSize="12sp"
-            android:maxLines="2"
-            android:ellipsize="end" />
+            android:layout_marginTop="4dp"
+            android:text="Company"
+            android:textColor="#F87171"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
     </LinearLayout>
+
+    <!-- Chevron -->
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="12dp"
+        android:src="@drawable/ic_chevron_right"
+        android:contentDescription="Open" />
 
 </LinearLayout>

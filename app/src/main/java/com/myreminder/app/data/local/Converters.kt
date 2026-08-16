@@ -11,10 +11,10 @@ class Converters {
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     @TypeConverter
-    fun fromLocalDate(date: LocalDate): Long = date.toEpochDay()
+    fun fromLocalDate(date: LocalDate?): Long? = date?.toEpochDay()
 
     @TypeConverter
-    fun toLocalDate(epochDay: Long): LocalDate = LocalDate.ofEpochDay(epochDay)
+    fun toLocalDate(epochDay: Long?): LocalDate? = epochDay?.let { LocalDate.ofEpochDay(it) }
 
     @TypeConverter
     fun fromLocalTime(time: LocalTime?): String? = time?.format(timeFormatter)

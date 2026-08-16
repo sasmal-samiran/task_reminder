@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = AppDatabase.getInstance(application).taskDao()
@@ -33,7 +32,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             if (task != null) {
                 if (completed) {
                     alarmScheduler.cancelTaskReminder(taskId)
-                } else if (task.getEventDateTime().isAfter(LocalDateTime.now())) {
+                } else {
                     alarmScheduler.scheduleTaskReminder(task)
                 }
             }

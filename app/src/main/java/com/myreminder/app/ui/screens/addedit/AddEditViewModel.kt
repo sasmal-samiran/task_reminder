@@ -8,6 +8,7 @@ import com.myreminder.app.data.local.AppDatabase
 import com.myreminder.app.data.local.SettingsDataStore
 import com.myreminder.app.data.local.TaskEntity
 import com.myreminder.app.data.model.Priority
+import com.myreminder.app.data.model.ReminderInterval
 import com.myreminder.app.data.model.TaskType
 import com.myreminder.app.notification.AlarmScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,12 +24,15 @@ import java.time.format.DateTimeFormatter
 data class AddEditUiState(
     val title: String = "",
     val company: String = "",
-    val type: TaskType = TaskType.DEADLINE, // Default task type is DEADLINE
-    val date: LocalDate = LocalDate.now(), // Event Date
-    val time: LocalTime? = LocalTime.now().plusHours(2).withMinute(0).withSecond(0), // Event Time
-    val reminderDate: LocalDate = LocalDate.now(), // Reminder Start Date
-    val reminderTime: LocalTime? = LocalTime.now().withMinute(0).withSecond(0), // Reminder Start Time
-    val intervalMinutes: Int = 1440, // 30 mins, 60 mins (1 hr), 1440 mins (1 day), 10080 mins (1 week)
+    val type: TaskType = TaskType.DEADLINE,
+    // Event date & time (when the task/event is due)
+    val eventDate: LocalDate = LocalDate.now().plusDays(1),
+    val eventTime: LocalTime? = LocalTime.of(18, 0),
+    // Reminder start date & time (when notifications begin)
+    val reminderDate: LocalDate = LocalDate.now(),
+    val reminderTime: LocalTime = LocalTime.of(7, 0),
+    // Reminder interval
+    val reminderInterval: ReminderInterval = ReminderInterval.DAY_1,
     val meetingLink: String = "",
     val location: String = "",
     val priority: Priority = Priority.HIGH,
@@ -39,41 +43,20 @@ data class AddEditUiState(
     val infoMessage: String? = null
 ) {
     fun getEventDateTime(): LocalDateTime {
-        val targetTime = time ?: LocalTime.of(23, 59)
-        return LocalDateTime.of(date, targetTime)
+        val t = eventTime ?: LocalTime.of(23, 59)
+        return LocalDateTime.of(eventDate, t)
     }
 
     fun getReminderStartDateTime(): LocalDateTime {
-        val rTime = reminderTime ?: time ?: LocalTime.of(9, 0)
-        return LocalDateTime.of(reminderDate, rTime)
+        return LocalDateTime.of(reminderDate, reminderTime)
     }
 
-    fun getIntervalLabel(): String {
-        return when (intervalMinutes) {
-            30 -> "30 minutes"
-            60 -> "1 hour"
-            1440 -> "1 day"
-            10080 -> "1 week"
-            else -> if (intervalMinutes % 1440 == 0) "${intervalMinutes / 1440} days" else "$intervalMinutes minutes"
-        }
-    }
-
-    fun getScheduleExplanation(): String {
-        val startFormatted = formatDateTime(reminderDate, reminderTime)
-        val endFormatted = formatDateTime(date, time)
-        val intervalStr = getIntervalLabel()
-        return "Notifications will be sent starting from $startFormatted until $endFormatted in intervals of $intervalStr."
-    }
-
-    private fun formatDateTime(d: LocalDate, t: LocalTime?): String {
-        val today = LocalDate.now()
-        val dStr = when {
-            d.isEqual(today) -> "Today"
-            d.isEqual(today.plusDays(1)) -> "Tomorrow"
-            else -> d.format(DateTimeFormatter.ofPattern("d MMM"))
-        }
-        val tStr = t?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "end of day"
-        return "$dStr at $tStr"
+    fun getIntervalExplanation(): String {
+        val eventDt = getEventDateTime()
+        val reminderDt = getReminderStartDateTime()
+        if (!reminderDt.isBefore(eventDt)) return "⚠️ Reminder must start before the event."
+        val interval = reminderInterval.displayName.lowercase()
+        return "Notifications will start at ${reminderTime.format(DateTimeFormatter.ofPattern("h:mm a"))} on ${reminderDate.format(DateTimeFormatter.ofPattern("d MMM"))} and repeat every $interval until the event."
     }
 }
 
@@ -101,12 +84,11 @@ class AddEditViewModel(
 
     private fun loadDefaults() {
         viewModelScope.launch {
-            val defaultInterval = settings.defaultReminderMinutes.first()
-            val initialInterval = if (defaultInterval in listOf(30, 60, 1440, 10080)) defaultInterval else 1440
+            val defHour = settings.defaultReminderHour.first()
+            val defMinute = settings.defaultReminderMinute.first()
             _uiState.update {
                 it.copy(
-                    type = TaskType.DEADLINE,
-                    intervalMinutes = initialInterval
+                    reminderTime = LocalTime.of(defHour, defMinute)
                 )
             }
         }
@@ -121,11 +103,11 @@ class AddEditViewModel(
                         title = task.title,
                         company = task.company,
                         type = task.type,
-                        date = task.date,
-                        time = task.time,
-                        reminderDate = task.reminderDate,
-                        reminderTime = task.reminderTime,
-                        intervalMinutes = if (task.intervalMinutes > 0) task.intervalMinutes else 1440,
+                        eventDate = task.date,
+                        eventTime = task.time,
+                        reminderDate = task.reminderDate ?: task.date.minusDays(1),
+                        reminderTime = task.reminderTime ?: LocalTime.of(7, 0),
+                        reminderInterval = ReminderInterval.fromMinutes(task.reminderIntervalMinutes),
                         meetingLink = task.meetingLink ?: "",
                         location = task.location ?: "",
                         priority = task.priority,
@@ -149,31 +131,27 @@ class AddEditViewModel(
     }
 
     fun updateEventDate(date: LocalDate) {
-        _uiState.update {
-            // If reminder date was after new event date, adjust reminder date
-            val adjustedReminderDate = if (it.reminderDate.isAfter(date)) date else it.reminderDate
-            it.copy(date = date, reminderDate = adjustedReminderDate, error = null)
-        }
-        validateSchedule()
+        _uiState.update { it.copy(eventDate = date, error = null) }
+        validateAll()
     }
 
     fun updateEventTime(time: LocalTime?) {
-        _uiState.update { it.copy(time = time, error = null) }
-        validateSchedule()
+        _uiState.update { it.copy(eventTime = time, error = null) }
+        validateAll()
     }
 
     fun updateReminderDate(date: LocalDate) {
         _uiState.update { it.copy(reminderDate = date, error = null) }
-        validateSchedule()
+        validateAll()
     }
 
-    fun updateReminderTime(time: LocalTime?) {
+    fun updateReminderTime(time: LocalTime) {
         _uiState.update { it.copy(reminderTime = time, error = null) }
-        validateSchedule()
+        validateAll()
     }
 
-    fun updateInterval(minutes: Int) {
-        _uiState.update { it.copy(intervalMinutes = minutes, error = null) }
+    fun updateReminderInterval(interval: ReminderInterval) {
+        _uiState.update { it.copy(reminderInterval = interval, error = null) }
     }
 
     fun updateMeetingLink(link: String) {
@@ -192,32 +170,36 @@ class AddEditViewModel(
         _uiState.update { it.copy(notes = notes) }
     }
 
-    private fun validateSchedule(): Boolean {
+    private fun validateAll(): Boolean {
         val state = _uiState.value
         val now = LocalDateTime.now()
         val eventDateTime = state.getEventDateTime()
-        val reminderStart = state.getReminderStartDateTime()
+        val reminderDateTime = state.getReminderStartDateTime()
 
-        // 1. Check if event is in the past
+        // 1. Event datetime must be in the future
         if (!eventDateTime.isAfter(now)) {
-            _uiState.update { it.copy(error = "Event date and time must be in the future.") }
+            _uiState.update { it.copy(
+                error = "Event date & time must be in the future. Current time: ${now.format(DateTimeFormatter.ofPattern("d MMM, h:mm a"))}.",
+                infoMessage = null
+            )}
             return false
         }
 
-        // 2. Check if reminder start is after event time
-        if (reminderStart.isAfter(eventDateTime)) {
-            _uiState.update { it.copy(error = "Reminder start time cannot be later than the event deadline.") }
+        // 2. Reminder start must be before event
+        if (!reminderDateTime.isBefore(eventDateTime)) {
+            _uiState.update { it.copy(
+                error = "Reminder start must be before the event date & time.",
+                infoMessage = null
+            )}
             return false
         }
 
-        // 3. Inform user if reminder start is in the past
-        if (reminderStart.isBefore(now)) {
-            _uiState.update {
-                it.copy(
-                    error = null,
-                    infoMessage = "Note: Reminder start time has already passed. Notifications will begin immediately until the event deadline."
-                )
-            }
+        // 3. If reminder start is in the past, warn but allow (will start immediately)
+        if (reminderDateTime.isBefore(now)) {
+            _uiState.update { it.copy(
+                error = null,
+                infoMessage = "Note: Reminder start time has passed. Notifications will begin immediately."
+            )}
         } else {
             _uiState.update { it.copy(error = null, infoMessage = null) }
         }
@@ -230,13 +212,11 @@ class AddEditViewModel(
             val state = _uiState.value
 
             if (state.title.isBlank()) {
-                _uiState.update { it.copy(error = "Title is required.") }
+                _uiState.update { it.copy(error = "Task title is required.") }
                 return@launch
             }
 
-            if (!validateSchedule()) {
-                return@launch
-            }
+            if (!validateAll()) return@launch
 
             _uiState.update { it.copy(isSaving = true, error = null) }
 
@@ -245,15 +225,19 @@ class AddEditViewModel(
                 title = state.title.trim(),
                 company = state.company.trim(),
                 type = state.type,
-                date = state.date,
-                time = state.time,
-                reminderDate = state.reminderDate,
-                reminderTime = state.reminderTime,
-                intervalMinutes = state.intervalMinutes,
+                date = state.eventDate,
+                time = state.eventTime,
                 meetingLink = state.meetingLink.takeIf { it.isNotBlank() }?.trim(),
                 location = state.location.takeIf { it.isNotBlank() }?.trim(),
                 priority = state.priority,
-                notes = state.notes.takeIf { it.isNotBlank() }?.trim()
+                notes = state.notes.takeIf { it.isNotBlank() }?.trim(),
+                reminderDate = state.reminderDate,
+                reminderTime = state.reminderTime,
+                reminderIntervalMinutes = state.reminderInterval.minutes,
+                // Keep backward-compat fields populated
+                reminderDurationValue = 1,
+                reminderDurationUnit = "DAYS",
+                reminderMinutes = 1440
             )
 
             val id = if (taskId != null) {
@@ -264,7 +248,7 @@ class AddEditViewModel(
             }
 
             val savedTask = task.copy(id = id)
-            if (!savedTask.completed && savedTask.getEventDateTime().isAfter(LocalDateTime.now())) {
+            if (!savedTask.completed) {
                 alarmScheduler.scheduleTaskReminder(savedTask)
             } else {
                 alarmScheduler.cancelTaskReminder(id)

@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.myreminder.app.data.model.ReminderInterval
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -42,9 +43,7 @@ fun TaskDetailScreen(
                     viewModel.deleteTask(onNavigateBack)
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") } }
         )
     }
 
@@ -79,26 +78,20 @@ fun TaskDetailScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Priority & Type chips
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssistChip(
                     onClick = { },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(t.priority.color, shape = RoundedCornerShape(50))
-                            )
+                            Box(modifier = Modifier.size(10.dp).background(t.priority.color, shape = RoundedCornerShape(50)))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("${t.priority.displayName} Priority")
                         }
                     }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                AssistChip(
-                    onClick = { },
-                    label = { Text(t.type.displayName) }
-                )
+                AssistChip(onClick = { }, label = { Text(t.type.displayName) })
             }
 
             Text(t.title, style = MaterialTheme.typography.headlineMedium)
@@ -109,45 +102,41 @@ fun TaskDetailScreen(
 
             HorizontalDivider()
 
-            val eventDatePrefix = when {
+            // Event date & time
+            val eventDateStr = when {
                 t.date.isEqual(LocalDate.now()) -> "Today"
                 t.date.isEqual(LocalDate.now().plusDays(1)) -> "Tomorrow"
                 else -> t.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
             }
-
-            // Event Date & Time
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Event, contentDescription = "Event Date", tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text("Event Deadline", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    Text("$eventDatePrefix • ${t.time?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "All Day"}", style = MaterialTheme.typography.bodyLarge)
+                Text("Event: $eventDateStr", style = MaterialTheme.typography.bodyLarge)
+                if (t.time != null) {
+                    Text(" at ${t.time.format(DateTimeFormatter.ofPattern("h:mm a"))}", style = MaterialTheme.typography.bodyLarge)
                 }
             }
 
-            // Reminder Start Date & Time
-            val reminderDatePrefix = when {
+            // Reminder start
+            val reminderDateStr = when {
+                t.reminderDate == null -> "Not set"
                 t.reminderDate.isEqual(LocalDate.now()) -> "Today"
                 t.reminderDate.isEqual(LocalDate.now().plusDays(1)) -> "Tomorrow"
                 else -> t.reminderDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
             }
+            val reminderTimeStr = t.reminderTime?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "7:00 AM"
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder Start", tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text("Reminders Start", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    Text("$reminderDatePrefix • ${t.reminderTime?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "All Day"}", style = MaterialTheme.typography.bodyMedium)
-                }
+                Text("Reminders start: $reminderDateStr at $reminderTimeStr", style = MaterialTheme.typography.bodyMedium)
             }
 
-            // Repeat Interval
+            // Interval
+            val intervalName = ReminderInterval.fromMinutes(t.reminderIntervalMinutes).displayName
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Repeat, contentDescription = "Repeat Interval", tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Repeat, contentDescription = "Interval", tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text("Repeat Frequency", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    Text("Every ${t.getIntervalDisplayName()} until event deadline", style = MaterialTheme.typography.bodyMedium)
-                }
+                Text("Repeat every: $intervalName", style = MaterialTheme.typography.bodyMedium)
             }
 
             if (!t.location.isNullOrBlank()) {
@@ -165,7 +154,7 @@ fun TaskDetailScreen(
                 }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Link, contentDescription = "Link")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Join Link")
+                    Text("Join Meeting")
                 }
             }
 

@@ -12,92 +12,64 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.myreminder.app.R
-import com.myreminder.app.data.local.SettingsDataStore
 import com.myreminder.app.data.local.TaskEntity
 import com.myreminder.app.data.model.Priority
-import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 class NotificationHelper(private val context: Context) {
 
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val settingsDataStore = SettingsDataStore(context)
-
-    companion object {
-        private const val TAG = "MyReminderNotification"
-        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority_v2"
-        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority_v2"
-        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority_v2"
-        const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary"
-        const val MORNING_SUMMARY_ID = 99999
-
-        fun hasNotificationPermission(context: Context): Boolean {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
-        }
-    }
 
     init {
         createChannels()
     }
 
-    private fun getSelectedSoundUri(): Uri {
-        return try {
-            val customUriStr = runBlocking { settingsDataStore.getCustomNotificationSoundUriSync() }
-            if (!customUriStr.isNullOrBlank()) {
-                Uri.parse(customUriStr)
-            } else {
-                Settings.System.DEFAULT_NOTIFICATION_URI
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            }
-        } catch (e: Exception) {
-            Settings.System.DEFAULT_NOTIFICATION_URI
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    /**
+     * Gets the notification sound URI:
+     * 1. User-selected sound from settings (if set)
+     * 2. Android default notification sound (fallback)
+     */
+    private fun getNotificationSoundUri(customSoundUri: String? = null): Uri {
+        if (!customSoundUri.isNullOrBlank()) {
+            try {
+                return Uri.parse(customSoundUri)
+            } catch (_: Exception) { /* fallback */ }
         }
+        return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            ?: Settings.System.DEFAULT_NOTIFICATION_URI
     }
 
     private fun getAudioAttributes(): AudioAttributes {
         return AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
             .build()
     }
 
-    fun createChannels() {
+    fun createChannels(customSoundUri: String? = null) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val soundUri = getSelectedSoundUri()
+            val soundUri = getNotificationSoundUri(customSoundUri)
             val audioAttributes = getAudioAttributes()
-            val vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
 
-            Log.d(TAG, "Creating/updating Notification Channels with sound URI: $soundUri")
-
-            // High Priority Channel - High Urgency
+            // High Priority Channel
             val highChannel = NotificationChannel(
                 CHANNEL_HIGH_PRIORITY,
-                "Critical Reminders & Deadlines",
+                "Critical & High Priority Reminders",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "High priority task and interview notifications"
+                description = "Urgent interview and task reminders"
                 enableVibration(true)
-                this.vibrationPattern = vibrationPattern
+                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
                 setSound(soundUri, audioAttributes)
                 enableLights(true)
-                lightColor = 0xFFEF4444.toInt()
+                lightColor = 0xFFC62828.toInt()
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
 
@@ -107,12 +79,12 @@ class NotificationHelper(private val context: Context) {
                 "Medium Priority Reminders",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Medium priority task notifications"
+                description = "Standard task and test reminders"
                 enableVibration(true)
-                this.vibrationPattern = longArrayOf(0, 400, 200, 400)
+                vibrationPattern = longArrayOf(0, 400, 200, 400)
                 setSound(soundUri, audioAttributes)
                 enableLights(true)
-                lightColor = 0xFFF59E0B.toInt()
+                lightColor = 0xFFD97706.toInt()
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
 
@@ -122,10 +94,11 @@ class NotificationHelper(private val context: Context) {
                 "Low Priority Reminders",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Standard low urgency task notifications"
+                description = "Low urgency reminders"
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 200, 100, 200)
                 setSound(soundUri, audioAttributes)
-                lightColor = 0xFF3B82F6.toInt()
+                lightColor = 0xFF1E40AF.toInt()
             }
 
             // Morning Summary Channel
@@ -134,7 +107,7 @@ class NotificationHelper(private val context: Context) {
                 "Morning Summary",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Daily 7:00 AM summary of your tasks"
+                description = "Daily morning summary of your tasks"
                 enableVibration(true)
             }
 
@@ -142,7 +115,6 @@ class NotificationHelper(private val context: Context) {
             notificationManager.createNotificationChannel(mediumChannel)
             notificationManager.createNotificationChannel(lowChannel)
             notificationManager.createNotificationChannel(summaryChannel)
-            Log.d(TAG, "Notification channels successfully created and registered with system.")
         }
     }
 
@@ -156,24 +128,18 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun formatHumanFriendlyTime(time: LocalTime?): String {
+    fun formatHumanFriendlyTime(time: java.time.LocalTime?): String {
         return time?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "All Day"
     }
 
-    fun formatFullDateTimeString(date: LocalDate, time: LocalTime?): String {
+    fun formatFullDateTimeString(date: LocalDate, time: java.time.LocalTime?): String {
         val dateStr = formatHumanFriendlyDate(date)
         val timeStr = formatHumanFriendlyTime(time)
-        return "$dateStr | $timeStr"
+        return if (time != null) "$dateStr, $timeStr" else dateStr
     }
 
-    fun showTaskReminder(task: TaskEntity) {
-        val hasPerm = hasNotificationPermission(context)
-        Log.d(TAG, "showTaskReminder invoked for Task ID: ${task.id} ('${task.title}'). Permission granted: $hasPerm")
-
-        if (!hasPerm) {
-            Log.w(TAG, "POST_NOTIFICATIONS permission not granted. Cannot show notification.")
-            return
-        }
+    fun showTaskReminder(task: TaskEntity, customSoundUri: String? = null) {
+        if (!hasNotificationPermission(context)) return
 
         val intent = Intent().apply {
             setClassName(context, "com.myreminder.app.MainActivity")
@@ -196,85 +162,63 @@ class NotificationHelper(private val context: Context) {
         val dateText = formatHumanFriendlyDate(task.date)
         val timeText = formatHumanFriendlyTime(task.time)
         val fullDateTimeText = formatFullDateTimeString(task.date, task.time)
-        val companyText = if (task.company.isNotBlank()) task.company else task.type.displayName
+        val companyText = if (task.company.isNotBlank()) task.company else "MyReminder"
 
-        val notesText = when {
-            !task.notes.isNullOrBlank() -> task.notes
-            !task.location.isNullOrBlank() -> "Location: ${task.location}"
-            !task.meetingLink.isNullOrBlank() -> "Meeting: ${task.meetingLink}"
-            else -> "Reminder for scheduled ${task.type.displayName}."
+        // Accent color for company name based on priority
+        val companyAccentColor = when (task.priority) {
+            Priority.HIGH -> 0xFFF87171.toInt()    // Light red
+            Priority.MEDIUM -> 0xFFFBBF24.toInt()  // Amber
+            Priority.LOW -> 0xFF60A5FA.toInt()      // Light blue
         }
 
-        val companyColor = when (task.priority) {
-            Priority.HIGH -> 0xFFEF4444.toInt() // Red
-            Priority.MEDIUM -> 0xFFF59E0B.toInt() // Amber
-            Priority.LOW -> 0xFF3B82F6.toInt() // Blue
+        // Priority bar drawable
+        val priorityBarRes = when (task.priority) {
+            Priority.HIGH -> R.drawable.bg_priority_pill_high
+            Priority.MEDIUM -> R.drawable.bg_priority_pill_medium
+            Priority.LOW -> R.drawable.bg_priority_pill_low
         }
 
-        // Build Custom Collapsed RemoteViews
+        // Bottom gradient line drawable
+        val bottomLineRes = when (task.priority) {
+            Priority.HIGH -> R.drawable.bg_bottom_line_high
+            Priority.MEDIUM -> R.drawable.bg_bottom_line_medium
+            Priority.LOW -> R.drawable.bg_bottom_line_low
+        }
+
+        // Build Collapsed RemoteViews
         val collapsedViews = RemoteViews(context.packageName, R.layout.notification_task_reminder_collapsed).apply {
             setTextViewText(R.id.notification_title, task.title)
             setTextViewText(R.id.notification_company, companyText)
-            setTextColor(R.id.notification_company, companyColor)
             setTextViewText(R.id.notification_date, dateText)
             setTextViewText(R.id.notification_time, timeText)
-            setTextViewText(R.id.notification_notes, notesText)
-
-            when (task.priority) {
-                Priority.HIGH -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_high)
-                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_high)
-                }
-                Priority.MEDIUM -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_medium)
-                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_medium)
-                }
-                Priority.LOW -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_low)
-                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_low)
-                }
-            }
+            setTextColor(R.id.notification_company, companyAccentColor)
+            setInt(R.id.notification_priority_bar, "setBackgroundResource", priorityBarRes)
         }
 
-        // Build Custom Expanded RemoteViews (Full non-truncated text wrapping)
+        // Build Expanded RemoteViews
         val expandedViews = RemoteViews(context.packageName, R.layout.notification_task_reminder_expanded).apply {
             setTextViewText(R.id.notification_title, task.title)
-            setTextViewText(R.id.notification_company, "$companyText • ${task.type.displayName}")
-            setTextColor(R.id.notification_company, companyColor)
+            setTextViewText(R.id.notification_company, companyText)
             setTextViewText(R.id.notification_date, dateText)
             setTextViewText(R.id.notification_time, timeText)
+            setTextColor(R.id.notification_company, companyAccentColor)
+            setInt(R.id.notification_priority_bar, "setBackgroundResource", priorityBarRes)
+            setInt(R.id.notification_bottom_line, "setBackgroundResource", bottomLineRes)
 
-            val fullDetails = buildString {
-                if (!task.notes.isNullOrBlank()) append(task.notes)
-                if (!task.location.isNullOrBlank()) {
-                    if (isNotEmpty()) append("\n📍 ") else append("📍 ")
-                    append(task.location)
-                }
-                if (!task.meetingLink.isNullOrBlank()) {
-                    if (isNotEmpty()) append("\n🔗 ") else append("🔗 ")
-                    append(task.meetingLink)
-                }
-                if (isEmpty()) append("Scheduled ${task.type.displayName} deadline reminder.")
-            }
-            setTextViewText(R.id.notification_notes, fullDetails)
+            // Show notes/description if available
+            val detailParts = mutableListOf<String>()
+            task.notes?.takeIf { it.isNotBlank() }?.let { detailParts.add(it) }
+            task.location?.takeIf { it.isNotBlank() }?.let { detailParts.add("📍 $it") }
 
-            when (task.priority) {
-                Priority.HIGH -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_high)
-                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_high)
-                }
-                Priority.MEDIUM -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_medium)
-                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_medium)
-                }
-                Priority.LOW -> {
-                    setInt(R.id.notification_card, "setBackgroundResource", R.drawable.bg_notification_card_v2_low)
-                    setInt(R.id.notification_priority_pill, "setBackgroundResource", R.drawable.bg_priority_pill_low)
-                }
+            if (detailParts.isNotEmpty()) {
+                setTextViewText(R.id.notification_details, detailParts.joinToString("\n"))
+                setViewVisibility(R.id.notification_details, View.VISIBLE)
+            } else {
+                setViewVisibility(R.id.notification_details, View.GONE)
             }
         }
 
-        val soundUri = getSelectedSoundUri()
+        val soundUri = getNotificationSoundUri(customSoundUri)
         val vibrationPattern = when (task.priority) {
             Priority.HIGH -> longArrayOf(0, 500, 200, 500, 200, 500)
             Priority.MEDIUM -> longArrayOf(0, 400, 200, 400)
@@ -289,26 +233,26 @@ class NotificationHelper(private val context: Context) {
 
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(task.title)
-            .setContentText("$companyText | $fullDateTimeText")
+            .setContentTitle("${task.title}")
+            .setContentText("$companyText — $fullDateTimeText")
             .setStyle(
                 NotificationCompat.BigTextStyle()
                     .setBigContentTitle(task.title)
-                    .bigText("${task.company}\n$notesText\n\n📅 $fullDateTimeText")
+                    .setSummaryText(companyText)
+                    .bigText("$companyText\n📅 $fullDateTimeText\n📌 ${task.type.displayName}${if (!task.notes.isNullOrBlank()) "\n\n${task.notes}" else ""}")
             )
             .setCustomContentView(collapsedViews)
             .setCustomBigContentView(expandedViews)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setPriority(notificationPriority)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setSound(soundUri)
             .setVibrate(vibrationPattern)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setColor(companyColor)
+            .setColor(task.priority.hexColorInt.toInt())
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        Log.d(TAG, "Posting notification to system: ID: ${task.id}, Channel: $channelId, Sound: $soundUri")
         notificationManager.notify(task.id.toInt(), builder.build())
     }
 
@@ -350,7 +294,25 @@ class NotificationHelper(private val context: Context) {
             .setAutoCancel(true)
             .setColor(0xFF1B5E20.toInt())
 
-        Log.d(TAG, "Posting Morning Summary notification with ${tasks.size} tasks.")
         notificationManager.notify(MORNING_SUMMARY_ID, builder.build())
+    }
+
+    companion object {
+        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority"
+        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority"
+        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority"
+        const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary"
+        const val MORNING_SUMMARY_ID = 99999
+
+        fun hasNotificationPermission(context: Context): Boolean {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        }
     }
 }

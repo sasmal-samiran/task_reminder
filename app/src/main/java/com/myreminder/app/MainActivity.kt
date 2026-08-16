@@ -34,9 +34,6 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // Initialize channels with selected notification sound
-        com.myreminder.app.notification.NotificationHelper(this).createChannels()
-
         setContent {
             MyReminderTheme {
                 Surface(

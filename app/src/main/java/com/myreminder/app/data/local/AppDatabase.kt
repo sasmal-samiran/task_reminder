@@ -26,12 +26,19 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderDate INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderDate INTEGER")
                 db.execSQL("ALTER TABLE tasks ADD COLUMN reminderTime TEXT")
-                db.execSQL("ALTER TABLE tasks ADD COLUMN intervalMinutes INTEGER NOT NULL DEFAULT 1440")
-                // Copy event date and time to reminder start for existing tasks
-                db.execSQL("UPDATE tasks SET reminderDate = date WHERE reminderDate = 0")
-                db.execSQL("UPDATE tasks SET reminderTime = time WHERE reminderTime IS NULL")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderIntervalMinutes INTEGER NOT NULL DEFAULT 1440")
+            }
+        }
+
+        val MIGRATION_1_3 = object : Migration(1, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderDurationValue INTEGER NOT NULL DEFAULT 30")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderDurationUnit TEXT NOT NULL DEFAULT 'MINUTES'")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderDate INTEGER")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderTime TEXT")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderIntervalMinutes INTEGER NOT NULL DEFAULT 1440")
             }
         }
 
@@ -42,7 +49,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "myreminder.db"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_1_3)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }
