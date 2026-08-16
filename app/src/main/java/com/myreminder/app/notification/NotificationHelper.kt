@@ -12,6 +12,7 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
@@ -30,6 +31,26 @@ class NotificationHelper(private val context: Context) {
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val settingsDataStore = SettingsDataStore(context)
+
+    companion object {
+        private const val TAG = "MyReminderNotification"
+        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority_v2"
+        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority_v2"
+        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority_v2"
+        const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary"
+        const val MORNING_SUMMARY_ID = 99999
+
+        fun hasNotificationPermission(context: Context): Boolean {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        }
+    }
 
     init {
         createChannels()
@@ -62,6 +83,8 @@ class NotificationHelper(private val context: Context) {
             val soundUri = getSelectedSoundUri()
             val audioAttributes = getAudioAttributes()
             val vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+
+            Log.d(TAG, "Creating/updating Notification Channels with sound URI: $soundUri")
 
             // High Priority Channel - High Urgency
             val highChannel = NotificationChannel(
@@ -119,15 +142,10 @@ class NotificationHelper(private val context: Context) {
             notificationManager.createNotificationChannel(mediumChannel)
             notificationManager.createNotificationChannel(lowChannel)
             notificationManager.createNotificationChannel(summaryChannel)
+            Log.d(TAG, "Notification channels successfully created and registered with system.")
         }
     }
 
-    /**
-     * Formats date into human-friendly representation matching reference:
-     * - "Today, 16 Aug"
-     * - "Tomorrow, 17 Aug"
-     * - "24 Aug" (or "16 August")
-     */
     fun formatHumanFriendlyDate(date: LocalDate): String {
         val today = LocalDate.now()
         return when {
@@ -149,7 +167,13 @@ class NotificationHelper(private val context: Context) {
     }
 
     fun showTaskReminder(task: TaskEntity) {
-        if (!hasNotificationPermission(context)) return
+        val hasPerm = hasNotificationPermission(context)
+        Log.d(TAG, "showTaskReminder invoked for Task ID: ${task.id} ('${task.title}'). Permission granted: $hasPerm")
+
+        if (!hasPerm) {
+            Log.w(TAG, "POST_NOTIFICATIONS permission not granted. Cannot show notification.")
+            return
+        }
 
         val intent = Intent().apply {
             setClassName(context, "com.myreminder.app.MainActivity")
@@ -178,7 +202,7 @@ class NotificationHelper(private val context: Context) {
             !task.notes.isNullOrBlank() -> task.notes
             !task.location.isNullOrBlank() -> "Location: ${task.location}"
             !task.meetingLink.isNullOrBlank() -> "Meeting: ${task.meetingLink}"
-            else -> "Reminder for your scheduled ${task.type.displayName}."
+            else -> "Reminder for scheduled ${task.type.displayName}."
         }
 
         val companyColor = when (task.priority) {
@@ -284,6 +308,7 @@ class NotificationHelper(private val context: Context) {
             .setColor(companyColor)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
+        Log.d(TAG, "Posting notification to system: ID: ${task.id}, Channel: $channelId, Sound: $soundUri")
         notificationManager.notify(task.id.toInt(), builder.build())
     }
 
@@ -325,25 +350,7 @@ class NotificationHelper(private val context: Context) {
             .setAutoCancel(true)
             .setColor(0xFF1B5E20.toInt())
 
+        Log.d(TAG, "Posting Morning Summary notification with ${tasks.size} tasks.")
         notificationManager.notify(MORNING_SUMMARY_ID, builder.build())
-    }
-
-    companion object {
-        const val CHANNEL_HIGH_PRIORITY = "channel_task_high_priority_v2"
-        const val CHANNEL_MEDIUM_PRIORITY = "channel_task_medium_priority_v2"
-        const val CHANNEL_LOW_PRIORITY = "channel_task_low_priority_v2"
-        const val CHANNEL_MORNING_SUMMARY = "channel_morning_summary"
-        const val MORNING_SUMMARY_ID = 99999
-
-        fun hasNotificationPermission(context: Context): Boolean {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
-        }
     }
 }

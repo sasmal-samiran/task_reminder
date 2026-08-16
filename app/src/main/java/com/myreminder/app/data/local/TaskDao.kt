@@ -38,6 +38,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE date = :date AND completed = 0 ORDER BY time ASC")
     suspend fun getTasksForDate(date: LocalDate): List<TaskEntity>
 
+    @Query("SELECT * FROM tasks WHERE completed = 0 ORDER BY date ASC, time ASC")
+    suspend fun getActiveIncompleteTasks(): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE date >= :fromDate AND completed = 0 AND reminderMinutes >= 0 ORDER BY date ASC, time ASC")
     suspend fun getTasksWithReminders(fromDate: LocalDate): List<TaskEntity>
 
