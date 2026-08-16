@@ -54,7 +54,7 @@ data class AddEditUiState(
     fun getIntervalExplanation(): String {
         val eventDt = getEventDateTime()
         val reminderDt = getReminderStartDateTime()
-        if (!reminderDt.isBefore(eventDt)) return "⚠️ Reminder must start before the event."
+        if (reminderDt.isAfter(eventDt)) return "⚠️ Reminder start cannot be after the event."
         val interval = reminderInterval.displayName.lowercase()
         return "Notifications will start at ${reminderTime.format(DateTimeFormatter.ofPattern("h:mm a"))} on ${reminderDate.format(DateTimeFormatter.ofPattern("d MMM"))} and repeat every $interval until the event."
     }
@@ -131,7 +131,10 @@ class AddEditViewModel(
     }
 
     fun updateEventDate(date: LocalDate) {
-        _uiState.update { it.copy(eventDate = date, error = null) }
+        _uiState.update {
+            val newReminderDate = if (it.reminderDate.isAfter(date)) date else it.reminderDate
+            it.copy(eventDate = date, reminderDate = newReminderDate, error = null)
+        }
         validateAll()
     }
 
@@ -185,20 +188,20 @@ class AddEditViewModel(
             return false
         }
 
-        // 2. Reminder start must be before event
-        if (!reminderDateTime.isBefore(eventDateTime)) {
+        // 2. Reminder start cannot be after event
+        if (reminderDateTime.isAfter(eventDateTime)) {
             _uiState.update { it.copy(
-                error = "Reminder start must be before the event date & time.",
+                error = "Reminder start date & time cannot be after the event date & time.",
                 infoMessage = null
             )}
             return false
         }
 
-        // 3. If reminder start is in the past, warn but allow (will start immediately)
+        // 3. If reminder start is in the past, notify user that alerts begin immediately
         if (reminderDateTime.isBefore(now)) {
             _uiState.update { it.copy(
                 error = null,
-                infoMessage = "Note: Reminder start time has passed. Notifications will begin immediately."
+                infoMessage = "Note: Reminder start time has arrived. Notifications will begin immediately."
             )}
         } else {
             _uiState.update { it.copy(error = null, infoMessage = null) }

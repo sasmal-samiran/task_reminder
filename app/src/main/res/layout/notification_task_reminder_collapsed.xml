@@ -51,8 +51,10 @@
                 android:layout_centerVertical="true"
                 android:orientation="horizontal"
                 android:background="@drawable/bg_datetime_badge"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="5dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
                 android:gravity="center_vertical">
 
                 <ImageView

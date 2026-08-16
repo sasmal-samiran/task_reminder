@@ -45,14 +45,15 @@ fun AddEditScreen(
     // Event Date Picker
     if (showEventDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.eventDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = uiState.eventDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         )
         DatePickerDialog(
             onDismissRequest = { showEventDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
-                        viewModel.updateEventDate(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate())
+                        val pickedDate = Instant.ofEpochMilli(it).atOffset(java.time.ZoneOffset.UTC).toLocalDate()
+                        viewModel.updateEventDate(pickedDate)
                     }
                     showEventDatePicker = false
                 }) { Text("OK") }
@@ -83,14 +84,15 @@ fun AddEditScreen(
     // Reminder Date Picker
     if (showReminderDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.reminderDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = uiState.reminderDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         )
         DatePickerDialog(
             onDismissRequest = { showReminderDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
-                        viewModel.updateReminderDate(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate())
+                        val pickedDate = Instant.ofEpochMilli(it).atOffset(java.time.ZoneOffset.UTC).toLocalDate()
+                        viewModel.updateReminderDate(pickedDate)
                     }
                     showReminderDatePicker = false
                 }) { Text("OK") }

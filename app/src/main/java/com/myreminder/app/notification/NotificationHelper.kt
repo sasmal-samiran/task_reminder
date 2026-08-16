@@ -247,7 +247,29 @@ class NotificationHelper(private val context: Context) {
             .setColor(task.priority.hexColorInt.toInt())
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        notificationManager.notify(task.id.toInt(), builder.build())
+        try {
+            notificationManager.notify(task.id.toInt(), builder.build())
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationHelper", "Custom notification inflation failed: ${e.message}. Using standard style.", e)
+            val fallbackBuilder = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(task.title)
+                .setContentText("$companyText — $fullDateTimeText")
+                .setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .setBigContentTitle(task.title)
+                        .setSummaryText(companyText)
+                        .bigText("$companyText\n📅 $fullDateTimeText\n📌 ${task.type.displayName}${if (!task.notes.isNullOrBlank()) "\n\n${task.notes}" else ""}")
+                )
+                .setPriority(notificationPriority)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setSound(soundUri)
+                .setVibrate(vibrationPattern)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setColor(task.priority.hexColorInt.toInt())
+            notificationManager.notify(task.id.toInt(), fallbackBuilder.build())
+        }
     }
 
     fun showMorningSummary(tasks: List<TaskEntity>) {
