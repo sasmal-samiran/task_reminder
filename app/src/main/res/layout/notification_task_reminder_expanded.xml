@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/bg_notification_card_high">
+
+    <!-- Top Row: Bell, Company, Priority -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Circular Bell Icon Badge -->
+        <FrameLayout
+            android:id="@+id/notification_bell_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/bg_bell_circle_high">
+
+            <ImageView
+                android:id="@+id/notification_bell_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_notification"
+                android:tint="#FFFFFF"
+                android:contentDescription="Notification Icon" />
+        </FrameLayout>
+
+        <!-- Company Name and Type -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/notification_company"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Company Name"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/notification_type"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Interview"
+                android:textColor="#CBD5E1"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Priority Badge Indicator -->
+        <ImageView
+            android:id="@+id/notification_priority_badge"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:src="@drawable/ic_priority_exclamation"
+            android:contentDescription="Priority Alert" />
+    </LinearLayout>
+
+    <!-- Full Complete Task Title / Description (Never Truncated, Full Wrap) -->
+    <TextView
+        android:id="@+id/notification_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Complete Task Title and Description"
+        android:textColor="#F8FAFC"
+        android:textSize="14sp"
+        android:lineSpacingExtra="2dp"
+        android:maxLines="10" />
+
+    <!-- Optional Location / Details -->
+    <TextView
+        android:id="@+id/notification_details"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text=""
+        android:textColor="#CBD5E1"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- Bottom Row: Date & Time Badge -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_calendar_small"
+            android:contentDescription="Calendar" />
+
+        <TextView
+            android:id="@+id/notification_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="Today"
+            android:textColor="#E2E8F0"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:text="|"
+            android:textColor="#94A3B8"
+            android:textSize="13sp" />
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_clock_small"
+            android:contentDescription="Clock" />
+
+        <TextView
+            android:id="@+id/notification_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="6:00 PM"
+            android:textColor="#E2E8F0"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</LinearLayout>

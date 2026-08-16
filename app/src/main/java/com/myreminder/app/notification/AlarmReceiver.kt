@@ -9,13 +9,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 
 class AlarmReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != "com.myreminder.app.TASK_REMINDER") return
-        
+
         val taskId = intent.getLongExtra("TASK_ID", -1L)
         if (taskId == -1L) return
 
@@ -28,10 +29,44 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 val db = AppDatabase.getInstance(context)
                 val task = db.taskDao().getTaskById(taskId)
-                
+
                 if (task != null && !task.completed) {
                     val notificationHelper = NotificationHelper(context)
                     notificationHelper.showTaskReminder(task)
+
+                    // Check if we should schedule the next repeated alarm in this window
+                    val now = LocalDateTime.now()
+                    val targetDateTime = task.getTargetDateTime()
+
+                    if (now.isBefore(targetDateTime)) {
+                        val scheduler = AlarmScheduler(context)
+                        val totalDurationMinutes = task.calculateTotalReminderMinutes()
+                        val intervalMinutes = scheduler.calculateRepeatIntervalMinutes(totalDurationMinutes)
+                        val nextAlarmTime = now.plusMinutes(intervalMinutes.toLong())
+
+                        // Only schedule if the next alarm time is still within or at target time
+                        val finalNextAlarm = if (nextAlarmTime.isBefore(targetDateTime)) nextAlarmTime else targetDateTime
+                        val epochMillis = finalNextAlarm.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+                        if (epochMillis > System.currentTimeMillis() && scheduler.canScheduleExactAlarms()) {
+                            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                            val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
+                                action = "com.myreminder.app.TASK_REMINDER"
+                                putExtra("TASK_ID", task.id)
+                            }
+                            val pendingIntent = android.app.PendingIntent.getBroadcast(
+                                context,
+                                task.id.toInt(),
+                                nextIntent,
+                                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                            )
+                            alarmManager.setExactAndAllowWhileIdle(
+                                android.app.AlarmManager.RTC_WAKEUP,
+                                epochMillis,
+                                pendingIntent
+                            )
+                        }
+                    }
                 }
             } finally {
                 pendingResult.finish()

@@ -163,7 +163,7 @@ fun CalendarScreen(
                         TaskCard(
                             task = task,
                             onClick = { onNavigateToTaskDetail(task.id) },
-                            onComplete = { /* Handle complete */ }
+                            onComplete = { viewModel.toggleComplete(task.id, it) }
                         )
                     }
                 }

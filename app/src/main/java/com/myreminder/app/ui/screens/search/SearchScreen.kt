@@ -99,7 +99,7 @@ fun SearchScreen(
                         TaskCard(
                             task = task,
                             onClick = { onNavigateToTaskDetail(task.id) },
-                            onComplete = { /* handle complete in search or rely on detail */ }
+                            onComplete = { viewModel.toggleComplete(task.id, it) }
                         )
                     }
                 }

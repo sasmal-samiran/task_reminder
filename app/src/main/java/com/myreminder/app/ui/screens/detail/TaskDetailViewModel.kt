@@ -31,7 +31,7 @@ class TaskDetailViewModel(
             dao.setCompleted(t.id, newStatus)
             if (newStatus) {
                 alarmScheduler.cancelTaskReminder(t.id)
-            } else if (t.reminderMinutes >= 0) {
+            } else if (t.calculateTotalReminderMinutes() >= 0) {
                 alarmScheduler.scheduleTaskReminder(t)
             }
         }

@@ -5,13 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.myreminder.app.data.local.AppDatabase
 import com.myreminder.app.data.local.TaskEntity
+import com.myreminder.app.notification.AlarmScheduler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = AppDatabase.getInstance(application).taskDao()
+    private val alarmScheduler = AlarmScheduler(application)
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     val currentMonth: StateFlow<YearMonth> = _currentMonth
@@ -44,5 +47,19 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     fun prevMonth() {
         _currentMonth.update { it.minusMonths(1) }
+    }
+
+    fun toggleComplete(taskId: Long, completed: Boolean) {
+        viewModelScope.launch {
+            dao.setCompleted(taskId, completed)
+            val task = dao.getTaskById(taskId)
+            if (task != null) {
+                if (completed) {
+                    alarmScheduler.cancelTaskReminder(taskId)
+                } else if (task.calculateTotalReminderMinutes() >= 0) {
+                    alarmScheduler.scheduleTaskReminder(task)
+                }
+            }
+        }
     }
 }

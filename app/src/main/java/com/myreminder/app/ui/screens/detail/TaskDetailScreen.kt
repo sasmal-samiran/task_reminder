@@ -2,8 +2,10 @@ package com.myreminder.app.ui.screens.detail
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,7 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.myreminder.app.data.model.ReminderOption
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,8 +34,8 @@ fun TaskDetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Task") },
-            text = { Text("Are you sure you want to delete this task?") },
+            title = { Text("Delete Reminder") },
+            text = { Text("Are you sure you want to delete this reminder?") },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
@@ -49,7 +51,7 @@ fun TaskDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Task Details") },
+                title = { Text("Reminder Details") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -80,7 +82,17 @@ fun TaskDetailScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssistChip(
                     onClick = { },
-                    label = { Text(t.priority.displayName) }
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(t.priority.color, shape = RoundedCornerShape(50))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("${t.priority.displayName} Priority")
+                        }
+                    }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 AssistChip(
@@ -88,27 +100,41 @@ fun TaskDetailScreen(
                     label = { Text(t.type.displayName) }
                 )
             }
-            
+
             Text(t.title, style = MaterialTheme.typography.headlineMedium)
-            
+
             if (t.company.isNotBlank()) {
                 Text(t.company, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             HorizontalDivider()
-            
+
+            val datePrefix = when {
+                t.date.isEqual(LocalDate.now()) -> "Today"
+                t.date.isEqual(LocalDate.now().plusDays(1)) -> "Tomorrow"
+                else -> t.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
+            }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Event, contentDescription = "Date")
+                Icon(Icons.Default.Event, contentDescription = "Date", tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(t.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy")))
+                Text(datePrefix, style = MaterialTheme.typography.bodyLarge)
                 if (t.time != null) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("•")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(t.time.format(DateTimeFormatter.ofPattern("h:mm a")))
+                    Text(t.time.format(DateTimeFormatter.ofPattern("h:mm a")), style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            
+
+            // Reminder window info
+            val durationText = "${t.reminderDurationValue} ${t.reminderDurationUnit.lowercase()}"
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder Window", tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Reminder Window: Repeated during $durationText before target", style = MaterialTheme.typography.bodyMedium)
+            }
+
             if (!t.location.isNullOrBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.LocationOn, contentDescription = "Location")
@@ -117,13 +143,6 @@ fun TaskDetailScreen(
                 }
             }
 
-            val reminderStr = ReminderOption.values().find { it.minutesBefore == t.reminderMinutes }?.displayName ?: "No reminder"
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Notifications, contentDescription = "Reminder")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(reminderStr)
-            }
-            
             if (!t.meetingLink.isNullOrBlank()) {
                 Button(onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(t.meetingLink))
@@ -131,17 +150,17 @@ fun TaskDetailScreen(
                 }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Link, contentDescription = "Link")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Join Meeting")
+                    Text("Join Interview / Meeting")
                 }
             }
-            
+
             if (!t.notes.isNullOrBlank()) {
                 Text("Notes", style = MaterialTheme.typography.titleMedium)
                 Text(t.notes)
             }
-            
+
             Spacer(modifier = Modifier.weight(1f))
-            
+
             Button(
                 onClick = { viewModel.toggleComplete() },
                 modifier = Modifier.fillMaxWidth(),

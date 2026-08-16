@@ -15,9 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.myreminder.app.data.model.Priority
 import com.myreminder.app.ui.theme.CompletedGray
-import com.myreminder.app.ui.theme.PriorityHigh
-import com.myreminder.app.ui.theme.PriorityLow
-import com.myreminder.app.ui.theme.PriorityMedium
 
 @Composable
 fun PriorityIndicator(
@@ -28,11 +25,7 @@ fun PriorityIndicator(
     val color = if (completed) {
         CompletedGray
     } else {
-        when (priority) {
-            Priority.HIGH -> PriorityHigh
-            Priority.MEDIUM -> PriorityMedium
-            Priority.LOW -> PriorityLow
-        }
+        priority.color
     }
 
     Box(

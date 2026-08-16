@@ -12,17 +12,51 @@ import java.time.ZoneId
 class AlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    fun scheduleTaskReminder(task: TaskEntity) {
-        if (task.reminderMinutes < 0) return
-        if (task.completed) return
-        
-        val time = task.time ?: java.time.LocalTime.MIDNIGHT
-        val dateTime = LocalDateTime.of(task.date, time)
-        val reminderTime = dateTime.minusMinutes(task.reminderMinutes.toLong())
-        val epochMillis = reminderTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    /**
+     * Calculates the sensible repeat interval in minutes based on total window duration.
+     */
+    fun calculateRepeatIntervalMinutes(totalDurationMinutes: Int): Int {
+        return when {
+            totalDurationMinutes <= 15 -> 5
+            totalDurationMinutes <= 30 -> 10
+            totalDurationMinutes <= 120 -> 30 // 2 hours -> every 30 mins
+            totalDurationMinutes <= 360 -> 60 // 6 hours -> every 1 hour
+            totalDurationMinutes <= 1440 -> 240 // 1 day -> every 4 hours
+            totalDurationMinutes <= 4320 -> 360 // 3 days -> every 6 hours
+            else -> 720 // > 3 days -> every 12 hours
+        }
+    }
 
+    /**
+     * Schedules the next reminder alarm for a task within its duration window.
+     */
+    fun scheduleTaskReminder(task: TaskEntity) {
+        if (task.completed) return
+
+        val totalDurationMinutes = task.calculateTotalReminderMinutes()
+        if (totalDurationMinutes < 0) return
+
+        val now = LocalDateTime.now()
+        val targetDateTime = task.getTargetDateTime()
+
+        // If target time has already passed, no alarm needed
+        if (!targetDateTime.isAfter(now)) return
+
+        val windowStart = targetDateTime.minusMinutes(totalDurationMinutes.toLong())
+        val nextAlarmTime: LocalDateTime = when {
+            // Case 1: Window start is in the future -> schedule at window start
+            now.isBefore(windowStart) -> windowStart
+
+            // Case 2: Currently inside the window -> schedule next step or now
+            else -> {
+                val intervalMinutes = calculateRepeatIntervalMinutes(totalDurationMinutes)
+                val potentialNext = now.plusMinutes(intervalMinutes.toLong())
+                if (potentialNext.isBefore(targetDateTime)) potentialNext else targetDateTime
+            }
+        }
+
+        val epochMillis = nextAlarmTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         if (epochMillis <= System.currentTimeMillis()) return
-        
         if (!canScheduleExactAlarms()) return
 
         val intent = Intent(context, AlarmReceiver::class.java).apply {

@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.myreminder.app.data.local.AppDatabase
 import com.myreminder.app.data.local.TaskEntity
 import com.myreminder.app.data.model.TaskType
+import com.myreminder.app.notification.AlarmScheduler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = AppDatabase.getInstance(application).taskDao()
+    private val alarmScheduler = AlarmScheduler(application)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
@@ -27,7 +30,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         } else {
             dao.searchTasks(query)
         }
-        
+
         results.map { list ->
             when (filter) {
                 "Interviews" -> list.filter { it.type == TaskType.INTERVIEW || it.type == TaskType.TECHNICAL_ROUND || it.type == TaskType.HR_ROUND }
@@ -45,5 +48,19 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateFilter(filter: String) {
         _selectedFilter.value = filter
+    }
+
+    fun toggleComplete(taskId: Long, completed: Boolean) {
+        viewModelScope.launch {
+            dao.setCompleted(taskId, completed)
+            val task = dao.getTaskById(taskId)
+            if (task != null) {
+                if (completed) {
+                    alarmScheduler.cancelTaskReminder(taskId)
+                } else if (task.calculateTotalReminderMinutes() >= 0) {
+                    alarmScheduler.scheduleTaskReminder(task)
+                }
+            }
+        }
     }
 }

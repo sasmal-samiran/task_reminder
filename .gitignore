@@ -9,7 +9,13 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+app/build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+*.apk
+*.ap_
+*.aab
+MyReminder-Signed-APK/
+
